@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><title>Gemma test</title></head>
+<body>
+<h1>Gemma loading test</h1>
+<button id="run">Run inference</button>
+<pre id="output">Click the button to start. First load will download ~2GB. Be patient.</pre>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@latest";
+
+const out = document.getElementById("output");
+const btn = document.getElementById("run");
+
+btn.onclick = async () => {
+  try {
+    out.textContent = "Loading model... watch the Network tab in DevTools.";
+    const t0 = performance.now();
+
+    const generator = await pipeline(
+      "text-generation",
+      "onnx-community/gemma-3-1b-it-ONNX",
+      { dtype: "q4", device: "webgpu" }
+    );
+
+    const t1 = performance.now();
+    out.textContent = `Model loaded in ${((t1-t0)/1000).toFixed(1)}s. Running inference...`;
+
+    const result = await generator(
+      [{ role: "user", content: "What is 17 times 23? Think step by step." }],
+      { max_new_tokens: 200 }
+    );
+
+    const t2 = performance.now();
+    out.textContent = `Loaded in ${((t1-t0)/1000).toFixed(1)}s, inferred in ${((t2-t1)/1000).toFixed(1)}s.\n\n${JSON.stringify(result, null, 2)}`;
+  } catch (e) {
+    out.textContent = "ERROR: " + e.message + "\n\nCheck DevTools Console for details.";
+    console.error(e);
+  }
+};
+</script>
+</body>
+</html>
