@@ -185,10 +185,10 @@ export default function PlayerPage() {
           <div className="muted">No songs yet. Drop some above.</div>
         )}
         {songs.map((s, i) => (
-          <div key={s.src} className="row">
-            <div style={{ color: i === index ? "#6ea8ff" : undefined }}>{s.name}</div>
+          <div key={s.src} className={`row${i === index ? " active" : ""}`}>
+            <div style={{ fontSize: 14, fontWeight: i === index ? 600 : 400 }}>{s.name}</div>
             <button className="ghost" onClick={() => { setIndex(i); setIsPlaying(true); }}>
-              Play
+              {i === index && isPlaying ? "Playing" : "Play"}
             </button>
           </div>
         ))}

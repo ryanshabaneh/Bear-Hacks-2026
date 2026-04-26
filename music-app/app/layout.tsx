@@ -13,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="container">
           <nav className="nav">
+            <span className="brand">♪ Stratus</span>
             <Link href="/">Player</Link>
             <Link href="/settings">Settings</Link>
           </nav>
