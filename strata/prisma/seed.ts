@@ -90,6 +90,7 @@ async function seedDistributors() {
         status: "active",
         cocAcceptedAt: new Date(Date.now() - (30 + i) * 86400000),
         cocVersionHash: "coc-v1-seed",
+        onboardedAt: new Date(Date.now() - (30 + i) * 86400000),
       },
     });
     const site = await prisma.site.create({
@@ -129,6 +130,7 @@ async function seedClients() {
       data: {
         userId: user.id,
         displayName: `Studio ${String.fromCharCode(65 + i)}`,
+        onboardedAt: new Date(Date.now() - (10 + i) * 86400000),
       },
     });
     ids.push(client.id);

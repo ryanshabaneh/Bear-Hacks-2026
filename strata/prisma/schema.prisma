@@ -27,6 +27,7 @@ model Distributor {
   status                 String        @default("active")
   cocAcceptedAt          DateTime?
   cocVersionHash         String?
+  onboardedAt            DateTime?
   sites                  Site[]
   slots                  ComputeSlot[]
   settlements            Settlement[]
@@ -46,6 +47,7 @@ model Client {
   cocVersionHash   String?
   reviewedAt       DateTime?
   reviewNotes      String?
+  onboardedAt      DateTime?
   forecasts        Forecast[]
 }
 

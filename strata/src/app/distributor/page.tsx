@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { getDistributorStats } from "@/lib/payments/balance";
+import { DistributorOnboardingModal } from "@/components/onboarding/DistributorOnboardingModal";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
 import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
 import { MonoNumber } from "@/components/cirrus/primitives/MonoNumber";
@@ -32,6 +33,7 @@ export default async function DistributorDashboard() {
   ]);
 
   const displayName = distributor?.displayName ?? "Distributor";
+  const showOnboarding = !distributor?.onboardedAt;
   const isSlopify = displayName.toLowerCase() === "slopify";
   const networkLabel = isSlopify ? "Slopify-PCN" : "Public Sky";
   const todayUsd = (stats.earningsMonthCents / 100).toFixed(2);
@@ -145,6 +147,7 @@ export default async function DistributorDashboard() {
           </div>
         </section>
       </div>
+      {showOnboarding ? <DistributorOnboardingModal /> : null}
     </AppShell>
   );
 }

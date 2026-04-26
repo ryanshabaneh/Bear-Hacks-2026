@@ -65,14 +65,19 @@ async function runLive(forecastId: string) {
   });
   if (!forecast) throw new Error(`forecast ${forecastId} not found`);
 
-  const audioPath = process.env.DCP_LIVE_AUDIO_PATH;
+  const fileScheme = "file://";
+  const audioPath = forecast.inputManifestUrl.startsWith(fileScheme)
+    ? forecast.inputManifestUrl.slice(fileScheme.length)
+    : process.env.DCP_LIVE_AUDIO_PATH;
   if (!audioPath) {
     throw new Error(
-      "DCP_LIVE_AUDIO_PATH not set; live mode needs a real audio file path on disk",
+      "No audio path on forecast.inputManifestUrl and DCP_LIVE_AUDIO_PATH not set",
     );
   }
 
-  const lib = await import(/* webpackIgnore: true */ "../../../../dcp/lib.mjs");
+  const path = await import("node:path");
+  const libPath = path.resolve(process.cwd(), "..", "dcp", "lib.mjs");
+  const lib = await import(/* webpackIgnore: true */ `file://${libPath}`);
 
   await prisma.forecast.update({
     where: { id: forecastId },
