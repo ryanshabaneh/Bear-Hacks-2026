@@ -4,15 +4,25 @@ import { runCachedReplay } from "./cached-replay";
 
 const REGIONS = ["NA-east", "NA-west", "EU", "APAC"] as const;
 const HARDCODE_LINES = [
-  "and that's where we picked up the trail of–",
-  "we kept walking even though the path was unfamiliar.",
-  "the air felt thinner up there, but somehow clearer.",
-  "she said it like it was the most obvious thing in the world.",
-  "by the time we got back, the sky had turned coral.",
-  "no one expected it would take that long to seal.",
-  "the recording cuts in here, bear with me.",
-  "what surprised me most was how quiet everything got.",
+  "What's up everybody, welcome to the most powerful podcast. Alright, we're going to get into the next segment.",
+  "I think we're going to be in the middle of the day. That's what we're going to do.",
+  "I don't think I'm going to be a better person than you. We're not going to do anything. We're benevolent. We might be the most benevolent.",
+  "I'm just saying, I'm just trying to get out of the way.",
+  "I think I'll be like, I'm not a real man. I'm just going to say it again.",
+  "I'm just going to shut up. I'm not sure if you can do anything.",
+  "They've got to give 10% of their wealth. It's a charity or whatever. You don't have to give 10% of your wealth to charity, you pay two-five, and you don't even have to fight in the wars.",
+  "This is why I think the other religions don't last in the world, because they're jealous.",
+  "I think it's the first time I've been in the world for a year. I'm not sure. I don't know what to do.",
+  "Yeah, I'm just going to work as they're right. I'm just going to do what I can do. I'm so happy.",
 ];
+
+const SIMULATED_NODES = [
+  { key: "node-slopify-northbeacon-01", origin: "Slopify", label: "Slopify (Northbeacon)", region: "NA-east" },
+  { key: "node-slopify-northbeacon-02", origin: "Slopify", label: "Slopify (Northbeacon)", region: "NA-west" },
+  { key: "node-pixelpost-zine-01",      origin: "Pixelpost", label: "Pixelpost (zine)", region: "EU" },
+  { key: "node-driftcast-fm-01",        origin: "Driftcast", label: "Driftcast.fm", region: "APAC" },
+  { key: "node-saltbox-coffee-01",      origin: "Saltbox", label: "Saltbox Coffee Wi-Fi", region: "NA-east" },
+] as const;
 
 export type DispatchOptions = {
   forecastId: string;
@@ -274,6 +284,38 @@ async function runLive(forecastId: string) {
   log("sealed", `bundle=catchments/${forecastId}.zip`);
 }
 
+async function refreshSimulatedNodes(slicesDelta = 0) {
+  const now = new Date();
+  for (const node of SIMULATED_NODES) {
+    await prisma.workerNode.upsert({
+      where: { nodeKey: node.key },
+      create: {
+        nodeKey: node.key,
+        origin: node.origin,
+        label: node.label,
+        slicesComputed: 0,
+        lastHeartbeatAt: now,
+      },
+      update: {
+        origin: node.origin,
+        label: node.label,
+        lastHeartbeatAt: now,
+        slicesComputed: { increment: slicesDelta },
+      },
+    });
+  }
+}
+
+async function bumpSimulatedNode(nodeKey: string) {
+  await prisma.workerNode.update({
+    where: { nodeKey },
+    data: {
+      lastHeartbeatAt: new Date(),
+      slicesComputed: { increment: 1 },
+    },
+  });
+}
+
 async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) {
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
@@ -299,55 +341,67 @@ async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) 
     ts: Date.now(),
   });
 
-  for (let i = 0; i < uniqueChunks.length; i++) {
-    await sleep(1000 + Math.random() * 1500);
+  await refreshSimulatedNodes();
+  const heartbeatTimer = setInterval(() => {
+    void refreshSimulatedNodes().catch(() => {});
+  }, 2000);
 
-    const chunk = uniqueChunks[i];
-    const region = REGIONS[Math.floor(Math.random() * REGIONS.length)];
-    const cyclesConsumed = 12 + Math.floor(Math.random() * 6);
-    const outputHash = randomHex(12);
-    const text = HARDCODE_LINES[i % HARDCODE_LINES.length];
-    const nodePubkey = `node_${randomHex(8)}`;
+  try {
+    for (let i = 0; i < uniqueChunks.length; i++) {
+      await sleep(700 + Math.random() * 900);
 
-    await prisma.slice.update({
-      where: { id: chunk.id },
-      data: {
-        status: "completed",
-        nodePubkey,
+      const chunk = uniqueChunks[i];
+      const node = SIMULATED_NODES[i % SIMULATED_NODES.length];
+      const region = node.region;
+      const cyclesConsumed = 12 + Math.floor(Math.random() * 6);
+      const outputHash = randomHex(12);
+      const text = HARDCODE_LINES[i % HARDCODE_LINES.length];
+      const nodePubkey = node.key;
+
+      await prisma.slice.update({
+        where: { id: chunk.id },
+        data: {
+          status: "completed",
+          nodePubkey,
+          outputHash,
+          outputText: text,
+          cyclesConsumed,
+          completedAt: new Date(),
+        },
+      });
+
+      await prisma.attestation.create({
+        data: {
+          sliceId: chunk.id,
+          nodePubkey,
+          nodeRegionGlyph: region,
+          outputHash,
+          schedulerSig: "hardcode-replay-valid",
+        },
+      });
+
+      await prisma.forecast.update({
+        where: { id: forecastId },
+        data: { budgetCyclesUsed: { increment: cyclesConsumed } },
+      });
+
+      await bumpSimulatedNode(nodePubkey);
+
+      publishForecast(forecastId, {
+        type: "slice:arrived",
+        forecastId,
+        chunkIndex: chunk.chunkIndex,
+        timestampStart: chunk.timestampStart,
+        timestampEnd: chunk.timestampEnd,
         outputHash,
-        outputText: text,
+        nodeRegion: region,
         cyclesConsumed,
-        completedAt: new Date(),
-      },
-    });
-
-    await prisma.attestation.create({
-      data: {
-        sliceId: chunk.id,
-        nodePubkey,
-        nodeRegionGlyph: region,
-        outputHash,
-        schedulerSig: "hardcode-replay-valid",
-      },
-    });
-
-    await prisma.forecast.update({
-      where: { id: forecastId },
-      data: { budgetCyclesUsed: { increment: cyclesConsumed } },
-    });
-
-    publishForecast(forecastId, {
-      type: "slice:arrived",
-      forecastId,
-      chunkIndex: chunk.chunkIndex,
-      timestampStart: chunk.timestampStart,
-      timestampEnd: chunk.timestampEnd,
-      outputHash,
-      nodeRegion: region,
-      cyclesConsumed,
-      text,
-      ts: Date.now(),
-    });
+        text,
+        ts: Date.now(),
+      });
+    }
+  } finally {
+    clearInterval(heartbeatTimer);
   }
 
   const audioHoursSealed = forecast.audioHoursTotal;
