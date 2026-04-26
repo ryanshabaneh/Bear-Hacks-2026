@@ -37,6 +37,10 @@ build/
 # DCP keystores accidentally checked in
 *.keystore
 
+# Local-only DCP scratch (keystores, PythonMonkey/bifrost2 install, smoke tests)
+dcp_ids/
+strata-secrets/
+
 # Test/coverage
 coverage/
 *.log
