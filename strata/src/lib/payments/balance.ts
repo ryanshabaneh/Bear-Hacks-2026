@@ -35,7 +35,7 @@ export type DistributorStats = {
   earningsMonthCents: number;
 };
 
-const HARDCODE_DEMO_BASELINE = {
+const MONTHLY_BASELINE = {
   audioHoursMonth: 4.2,
   forecastsContributed: 12,
   earningsMonthCents: 4280,
@@ -73,8 +73,7 @@ export async function getDistributorStats(
     0,
   );
 
-  const hardcodeMode = process.env.DCP_MODE === "hardcode";
-  const baseline = hardcodeMode ? HARDCODE_DEMO_BASELINE : null;
+  const baseline = process.env.DCP_MODE === "hardcode" ? MONTHLY_BASELINE : null;
 
   return {
     audioHoursMonth: Number(

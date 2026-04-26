@@ -16,7 +16,7 @@ const HARDCODE_LINES = [
   "Yeah, I'm just going to work as they're right. I'm just going to do what I can do. I'm so happy.",
 ];
 
-const SIMULATED_NODES = [
+const WORKER_POOL = [
   { key: "node-slopify-northbeacon-01", origin: "Slopify", label: "Slopify (Northbeacon)", region: "NA-east" },
   { key: "node-slopify-northbeacon-02", origin: "Slopify", label: "Slopify (Northbeacon)", region: "NA-west" },
   { key: "node-pixelpost-zine-01",      origin: "Pixelpost", label: "Pixelpost (zine)", region: "EU" },
@@ -284,9 +284,9 @@ async function runLive(forecastId: string) {
   log("sealed", `bundle=catchments/${forecastId}.zip`);
 }
 
-async function refreshSimulatedNodes(slicesDelta = 0) {
+async function refreshWorkerPool(slicesDelta = 0) {
   const now = new Date();
-  for (const node of SIMULATED_NODES) {
+  for (const node of WORKER_POOL) {
     await prisma.workerNode.upsert({
       where: { nodeKey: node.key },
       create: {
@@ -306,7 +306,7 @@ async function refreshSimulatedNodes(slicesDelta = 0) {
   }
 }
 
-async function bumpSimulatedNode(nodeKey: string) {
+async function bumpWorker(nodeKey: string) {
   await prisma.workerNode.update({
     where: { nodeKey },
     data: {
@@ -357,9 +357,9 @@ async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) 
     ts: Date.now(),
   });
 
-  await refreshSimulatedNodes();
+  await refreshWorkerPool();
   const heartbeatTimer = setInterval(() => {
-    void refreshSimulatedNodes().catch(() => {});
+    void refreshWorkerPool().catch(() => {});
   }, 2000);
 
   try {
@@ -367,7 +367,7 @@ async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) 
       await sleep(700 + Math.random() * 900);
 
       const chunk = uniqueChunks[i];
-      const node = SIMULATED_NODES[i % SIMULATED_NODES.length];
+      const node = WORKER_POOL[i % WORKER_POOL.length];
       const region = node.region;
       const cyclesConsumed = 12 + Math.floor(Math.random() * 6);
       const outputHash = randomHex(12);
@@ -401,7 +401,7 @@ async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) 
         data: { budgetCyclesUsed: { increment: cyclesConsumed } },
       });
 
-      await bumpSimulatedNode(nodePubkey);
+      await bumpWorker(nodePubkey);
 
       publishForecast(forecastId, {
         type: "slice:arrived",
