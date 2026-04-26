@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Strata runtime</title>
+  <script src="https://scheduler.distributed.computer/dcp-client/dcp-client.js"></script>
+</head>
+<body>
+<script type="module">
+  /* Strata runtime iframe — see plan/04-embed.md.
+   * Loads dcp-client, fetches per-slot config from the Strata API,
+   * starts a DCP worker, and reports state up to the parent IIFE chip.
+   */
+  const STRATA_API = (window.__STRATA_API__ || 'https://strata.dev').replace(/\/$/, '');
+  const params = new URLSearchParams(location.search);
+  const slotId = params.get('slot');
+
+  const parentOrigin = (location.ancestorOrigins && location.ancestorOrigins[0]) || '*';
+  const post = (msg) => parent.postMessage(msg, parentOrigin === 'null' ? '*' : parentOrigin);
+
+  if (!slotId) {
+    console.warn('[strata-runtime] missing ?slot');
+    post({ type: 'strata:status', state: 'error', reason: 'missing_slot' });
+    throw new Error('missing slot');
+  }
+
+  let cfg;
+  try {
+    const res = await fetch(`${STRATA_API}/api/embed/${encodeURIComponent(slotId)}/config`, {
+      cache: 'no-store',
+      credentials: 'omit',
+    });
+    cfg = await res.json();
+  } catch (e) {
+    console.warn('[strata-runtime] config fetch failed', e);
+    post({ type: 'strata:status', state: 'error', reason: 'config_fetch' });
+    throw e;
+  }
+
+  if (!cfg || !cfg.active) {
+    post({ type: 'strata:status', state: 'idle' });
+    console.info('[strata-runtime] slot inactive');
+  } else if (!window.dcp || !window.dcp.worker) {
+    post({ type: 'strata:status', state: 'error', reason: 'dcp_client_missing' });
+    console.warn('[strata-runtime] dcp-client not available');
+  } else {
+    const worker = new window.dcp.worker.Worker({
+      paymentAddress: cfg.paymentAddress,
+      maxWorkingSandboxes: 1,
+      computeGroups: [{ joinKey: cfg.joinKey, joinSecret: cfg.joinSecret }],
+    });
+
+    worker.on('start', () => post({ type: 'strata:status', state: 'running' }));
+    worker.on('stop', () => post({ type: 'strata:status', state: 'idle' }));
+    worker.on('payment', (ev) => {
+      if (ev && ev.accepted) {
+        post({ type: 'strata:tick', amount: ev.payment });
+      }
+    });
+    worker.on('sandbox', (ev) => {
+      if (ev && typeof ev.computed === 'number') {
+        post({
+          type: 'strata:status',
+          state: 'running',
+          computed: ev.computed,
+          total: ev.total,
+        });
+      }
+    });
+    worker.on('error', (e) => {
+      console.warn('[strata-runtime] worker error', e);
+      post({ type: 'strata:status', state: 'error', reason: 'worker_error' });
+    });
+
+    window.addEventListener('message', (ev) => {
+      if (parentOrigin !== '*' && ev.origin !== parentOrigin) return;
+      const data = ev.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type === 'pause') worker.stop();
+      if (data.type === 'resume') worker.start();
+    });
+
+    try {
+      await worker.start();
+    } catch (e) {
+      console.warn('[strata-runtime] worker.start failed', e);
+      post({ type: 'strata:status', state: 'error', reason: 'start_failed' });
+    }
+  }
+</script>
+</body>
+</html>
