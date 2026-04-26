@@ -11,6 +11,8 @@
 // see a believable "computing…" widget without us needing a funded DCP keystore
 // or a live submit worker on stage.
 
+import { sendStrataHeartbeat } from "@/lib/strataHeartbeat";
+
 export type ComputeProgress = {
   state: "idle" | "running" | "paused";
   computed: number;
@@ -35,11 +37,14 @@ const SLICES = 8;
 const SLICE_MS = 450;
 
 export async function runCompute(): Promise<void> {
+  await sendStrataHeartbeat({ slicesComputed: 0 });
   for (let i = 1; i <= SLICES; i++) {
     emitComputeProgress({ state: "running", computed: i, total: SLICES });
+    void sendStrataHeartbeat({ slicesComputed: 1 });
     await new Promise((r) => setTimeout(r, SLICE_MS));
   }
   // brief pause so the user sees "8/8" before the chip resets to idle
   await new Promise((r) => setTimeout(r, 200));
   emitComputeProgress({ state: "idle", computed: 0, total: SLICES });
+  void sendStrataHeartbeat({ slicesComputed: 0 });
 }
