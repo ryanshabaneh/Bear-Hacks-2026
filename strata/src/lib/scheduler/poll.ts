@@ -3,7 +3,7 @@ import { dispatchForecast } from "@/lib/forecast/dispatch";
 
 const TICK_MS = 1000;
 const MAX_CONCURRENT = 1;
-const STUCK_AFTER_MS = 240000;
+const STUCK_AFTER_MS = Number(process.env.STRATA_STUCK_AFTER_MS ?? Number.MAX_SAFE_INTEGER);
 const SWEEP_EVERY_TICKS = 10;
 
 type SchedulerState = {

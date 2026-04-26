@@ -202,23 +202,6 @@ async function runLive(forecastId: string) {
     );
   };
 
-  const transcribeTimeoutMs = Number(process.env.DCP_TRANSCRIBE_TIMEOUT_MS ?? 180000);
-  const transcribePromise = lib.transcribeChunks(chunks, {
-    bidPrice,
-    returnTimings: true,
-    onProgress: (done: number, t: number) => log("progress", `${done}/${t}`),
-    onResult: handleResult,
-  });
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutHandle = setTimeout(() => {
-      reject(
-        new Error(
-          `transcribeChunks exceeded ${transcribeTimeoutMs}ms; DCP did not return all slices`,
-        ),
-      );
-    }, transcribeTimeoutMs);
-  });
   let result: {
     texts: string[];
     dispatchedAt: number;
@@ -228,16 +211,19 @@ async function runLive(forecastId: string) {
     }>;
   };
   try {
-    result = (await Promise.race([transcribePromise, timeoutPromise])) as typeof result;
+    result = (await lib.transcribeChunks(chunks, {
+      bidPrice,
+      returnTimings: true,
+      onProgress: (done: number, t: number) => log("progress", `${done}/${t}`),
+      onResult: handleResult,
+    })) as typeof result;
   } catch (error) {
     abandoned = true;
-    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
     const message = error instanceof Error ? error.message : String(error);
     log("failed", message);
     await recordFailure(forecastId, error);
     return;
   }
-  if (timeoutHandle !== null) clearTimeout(timeoutHandle);
   log("returned", `${result.texts.length} transcripts from scheduler`);
 
   const audioHoursSealed = Number((samples.length / 16000 / 3600).toFixed(3));
