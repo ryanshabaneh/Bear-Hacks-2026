@@ -250,16 +250,32 @@ export default function PlayerPage() {
             <div className="lib-title">★ LIBRARY</div>
             <div className="muted">{songs.length} songs · drag mp3s anywhere</div>
           </div>
-          <button className="ghost sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          <button
+            type="button"
+            className="ghost sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
             {uploading ? "UPLOADING…" : uploadMsg ?? "+ ADD FILES"}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/mpeg,.mp3"
+            accept="audio/mpeg,.mp3,audio/*"
             multiple
-            hidden
-            onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }}
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              top: "auto",
+              width: "1px",
+              height: "1px",
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            onChange={(e) => {
+              if (e.target.files?.length) uploadFiles(e.target.files);
+              e.target.value = "";
+            }}
           />
         </div>
 

@@ -606,6 +606,7 @@ h1 { display: none; }
   top: -22px;
   left: 50%;
   transform: translateX(-50%);
+  pointer-events: none;       /* decorative */
   background: var(--neon-pink);
   color: var(--ink);
   font-family: 'Silkscreen', monospace;
@@ -626,6 +627,7 @@ h1 { display: none; }
   left: -56px;
   right: -56px;
   height: 64px;
+  pointer-events: none;       /* never intercept clicks */
   background:
     repeating-linear-gradient(
       90deg,
@@ -1139,6 +1141,7 @@ button.play:active:not(:disabled) {
   top: -14px;
   left: 50%;
   transform: translateX(-50%);
+  pointer-events: none;       /* label is decorative; never intercept clicks */
   background: var(--label-cream);
   color: var(--ink);
   font-family: 'Silkscreen', monospace;
@@ -1176,6 +1179,8 @@ button.play:active:not(:disabled) {
 
 /* "Drop tapes here" crate button */
 button.ghost {
+  position: relative;        /* establish stacking context */
+  z-index: 4;                /* keep above decorative siblings */
   background:
     radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.5) 8%, transparent 25%),
     var(--neon-orange);
