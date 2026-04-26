@@ -273,3 +273,190 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+:root {
+  --y2k-bg: #aac2eb;
+  --y2k-window: #faf8ff;
+  --y2k-window-pink: #fde6f2;
+  --y2k-titlebar-lavender: #b9a7d6;
+  --y2k-titlebar-pink: #f5a8c8;
+  --y2k-titlebar-cream: #f4ecd8;
+  --y2k-border: #1f1840;
+  --y2k-accent-pink: #f3a8d3;
+  --y2k-accent-lavender: #c8b8e0;
+  --y2k-accent-blue: #b8d0ee;
+  --y2k-shadow: rgba(31, 24, 64, 0.95);
+  --y2k-handle: #f3a8d3;
+}
+
+.y2k-window {
+  position: relative;
+  background: var(--y2k-window);
+  border: 1.5px solid var(--y2k-border);
+  border-radius: 3px;
+  box-shadow: 4px 4px 0 0 var(--y2k-shadow);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.y2k-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--y2k-titlebar-lavender);
+  border-bottom: 1.5px solid var(--y2k-border);
+  padding: 4px 6px 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--y2k-border);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.y2k-titlebar-pink {
+  background: var(--y2k-titlebar-pink);
+}
+
+.y2k-titlebar-cream {
+  background: var(--y2k-titlebar-cream);
+}
+
+.y2k-titlebar-controls {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.y2k-titlebar-control {
+  width: 16px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--y2k-border);
+  background: var(--y2k-window);
+  font-size: 8px;
+  line-height: 1;
+  font-family: var(--font-mono);
+  color: var(--y2k-border);
+}
+
+.y2k-window-body {
+  padding: 18px 20px 16px;
+  background: var(--y2k-window);
+  color: var(--y2k-border);
+}
+
+.y2k-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--y2k-window);
+  border: 1.5px solid var(--y2k-border);
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 0 var(--y2k-shadow);
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--y2k-border);
+  cursor: pointer;
+  transition: transform 80ms var(--ease-out), box-shadow 80ms var(--ease-out), background 120ms var(--ease-out);
+}
+
+.y2k-button:hover:not(:disabled) {
+  background: var(--y2k-window-pink);
+}
+
+.y2k-button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 var(--y2k-shadow);
+}
+
+.y2k-button-primary {
+  background: var(--y2k-titlebar-pink);
+}
+
+.y2k-button-primary:hover:not(:disabled) {
+  background: var(--y2k-accent-pink);
+}
+
+.y2k-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.y2k-image-stub {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background:
+    linear-gradient(135deg,
+      var(--y2k-accent-blue) 0%,
+      var(--y2k-accent-lavender) 45%,
+      var(--y2k-accent-pink) 100%
+    );
+  border: 1px solid var(--y2k-border);
+  overflow: hidden;
+}
+
+.y2k-image-stub > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.y2k-image-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--y2k-handle);
+  border: 1px solid var(--y2k-border);
+  z-index: 2;
+}
+
+.y2k-image-handle-tl { top: -5px; left: -5px; }
+.y2k-image-handle-tr { top: -5px; right: -5px; }
+.y2k-image-handle-bl { bottom: -5px; left: -5px; }
+.y2k-image-handle-br { bottom: -5px; right: -5px; }
+
+.y2k-image-stub-wrap {
+  position: relative;
+  padding: 5px;
+}
+
+.y2k-sparkle {
+  position: absolute;
+  pointer-events: none;
+  color: var(--y2k-accent-pink);
+  opacity: 0.85;
+}
+
+.y2k-stepper-pip {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--y2k-border);
+  background: var(--y2k-window);
+  display: inline-block;
+  box-shadow: 1px 1px 0 0 var(--y2k-shadow);
+}
+
+.y2k-stepper-pip-active {
+  background: var(--y2k-titlebar-pink);
+}
+
+.y2k-stepper-pip-done {
+  background: var(--y2k-accent-lavender);
+}
+
+.y2k-mono {
+  font-family: var(--font-mono);
+}
+
+.y2k-stage {
+  background: var(--y2k-bg);
+}
