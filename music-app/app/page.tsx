@@ -16,7 +16,7 @@ function fmt(t: number): string {
 export default function PlayerPage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [index, setIndex] = useState(0);
-  const [playCount, setPlayCount] = useState(0);
+  const [breakProgress, setBreakProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [breakActive, setBreakActive] = useState<null | "ad" | "compute">(null);
   const [dragActive, setDragActive] = useState(false);
@@ -24,8 +24,12 @@ export default function PlayerPage() {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [ads, setAds] = useState<string[]>([]);
+  const [adIndex, setAdIndex] = useState(0);
+  const [adVideo, setAdVideo] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const adResolveRef = useRef<(() => void) | null>(null);
 
   async function loadSongs() {
     try {
@@ -39,41 +43,74 @@ export default function PlayerPage() {
 
   useEffect(() => { loadSongs(); }, []);
 
+  useEffect(() => {
+    fetch("/api/ads", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { ads: string[] }) => setAds(d.ads))
+      .catch(() => setAds([]));
+  }, []);
+
   const current = songs[index];
 
   async function triggerBreak() {
     const mode = getBreakMode();
     setBreakActive(mode);
     if (mode === "ad") {
-      const ad = new Audio("/ad/ad.mp3");
-      ad.play().catch(() => {});
-      await new Promise((res) => setTimeout(res, AD_DURATION_MS));
-      ad.pause();
+      if (ads.length) {
+        const src = ads[adIndex % ads.length];
+        setAdIndex((i) => i + 1);
+        await new Promise<void>((resolve) => {
+          adResolveRef.current = resolve;
+          setAdVideo(src);
+        });
+      } else {
+        await new Promise((res) => setTimeout(res, AD_DURATION_MS));
+      }
     } else {
       await runCompute();
     }
     setBreakActive(null);
   }
 
+  function endAd() {
+    setAdVideo(null);
+    const r = adResolveRef.current;
+    adResolveRef.current = null;
+    r?.();
+  }
+
   async function handleEnded() {
-    const next = playCount + 1;
-    setPlayCount(next);
-    if (next % SONGS_PER_BREAK === 0) await triggerBreak();
+    const np = breakProgress + 1;
+    if (np >= SONGS_PER_BREAK) {
+      setBreakProgress(0);
+      await triggerBreak();
+    } else {
+      setBreakProgress(np);
+    }
     setIndex((i) => (songs.length ? (i + 1) % songs.length : 0));
     setIsPlaying(true);
   }
 
   useEffect(() => {
     if (!audioRef.current) return;
-    if (isPlaying && !breakActive) {
+    if (isPlaying && !breakActive && !adVideo) {
       audioRef.current.play().catch(() => setIsPlaying(false));
     } else {
       audioRef.current.pause();
     }
-  }, [isPlaying, index, breakActive]);
+  }, [isPlaying, index, breakActive, adVideo]);
 
   function toggle() { if (current) setIsPlaying((p) => !p); }
-  function next() { setIndex((i) => (songs.length ? (i + 1) % songs.length : 0)); }
+  async function next() {
+    const np = breakProgress + 1;
+    if (np >= SONGS_PER_BREAK) {
+      setBreakProgress(0);
+      await triggerBreak();
+    } else {
+      setBreakProgress(np);
+    }
+    setIndex((i) => (songs.length ? (i + 1) % songs.length : 0));
+  }
   function prev() { setIndex((i) => (songs.length ? (i - 1 + songs.length) % songs.length : 0)); }
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
@@ -104,7 +141,7 @@ export default function PlayerPage() {
   }
 
   const progress = duration ? (time / duration) * 100 : 0;
-  const breakIn = SONGS_PER_BREAK - (playCount % SONGS_PER_BREAK);
+  const breakIn = SONGS_PER_BREAK - breakProgress;
 
   return (
     <main
@@ -121,6 +158,23 @@ export default function PlayerPage() {
       }}
     >
       {dragActive && <div className="drop-overlay">Drop .mp3 files anywhere</div>}
+
+      {adVideo && (
+        <div className="ad-modal" role="dialog" aria-label="Advertisement">
+          <div className="ad-modal-inner">
+            <div className="ad-label">Ad</div>
+            <video
+              src={adVideo}
+              autoPlay
+              playsInline
+              onEnded={endAd}
+              onError={endAd}
+              className="ad-video"
+              controls={false}
+            />
+          </div>
+        </div>
+      )}
 
       {breakActive === "ad" && <div className="banner">● Ad break</div>}
       {breakActive === "compute" && <div className="banner compute">● Computing</div>}
