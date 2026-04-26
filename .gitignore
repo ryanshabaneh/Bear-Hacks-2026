@@ -1,0 +1,42 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files (never commit secrets)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma local DB
+*.db
+*.db-journal
+
+# DCP keystores accidentally checked in
+*.keystore
+
+# Test/coverage
+coverage/
+*.log
