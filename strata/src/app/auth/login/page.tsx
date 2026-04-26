@@ -1,5 +1,5 @@
 import { CirrusStage } from "@/components/cirrus/stage/CirrusStage";
-import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
+import { Window } from "@/components/ui/Window";
 import { LoginForm } from "./LoginForm";
 
 type Search = { screen_hint?: string; account_type?: string; from?: string };
@@ -9,8 +9,6 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  // In AUTH_MODE=auth0, proxy.ts intercepts /auth/* before this page renders.
-  // In AUTH_MODE=stub, the form below handles login/signup directly.
   const params = await searchParams;
   const isSignup = params.screen_hint === "signup";
   const presetRole =
@@ -20,20 +18,31 @@ export default async function LoginPage({
 
   return (
     <CirrusStage>
-      <main className="min-h-[80dvh] flex items-center justify-center px-6 py-12">
-        <div className="cirrus-card w-full max-w-[420px] p-8 flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <UnitLabel>Strata · {isSignup ? "create account" : "sign in"}</UnitLabel>
-            <h1 className="cirrus-text-h1">
-              {isSignup ? "Open an account." : "Welcome back."}
-            </h1>
-            <p className="cirrus-text-body-sm opacity-70">
-              Stub mode is active. Switch to real Auth0 by setting
-              {" "}
-              <code className="cirrus-text-mono-id">AUTH_MODE=auth0</code>.
-            </p>
-          </div>
-          <LoginForm presetRole={presetRole} isSignup={isSignup} />
+      <main className="min-h-[100dvh] flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[440px]">
+          <Window
+            title={isSignup ? "open-account.exe" : "sign-in.exe"}
+            titleBarTone={isSignup ? "pink" : "lavender"}
+            sparkles={true}
+          >
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <span className="cirrus-text-unit">
+                  Strata · {isSignup ? "create account" : "sign in"}
+                </span>
+                <h1 className="cirrus-text-h1">
+                  {isSignup ? "open an account." : "welcome back."}
+                </h1>
+                <p
+                  className="y2k-mono"
+                  style={{ fontSize: 12, opacity: 0.75, color: "var(--y2k-border)" }}
+                >
+                  your stratosphere orchestrator awaits.
+                </p>
+              </div>
+              <LoginForm presetRole={presetRole} isSignup={isSignup} />
+            </div>
+          </Window>
         </div>
       </main>
     </CirrusStage>
