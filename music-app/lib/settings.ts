@@ -13,5 +13,5 @@ export function setBreakMode(mode: BreakMode): void {
   window.localStorage.setItem(KEY, mode);
 }
 
-export const SONGS_PER_BREAK = 5;
+export const SONGS_PER_BREAK = 2;
 export const AD_DURATION_MS = 3000;

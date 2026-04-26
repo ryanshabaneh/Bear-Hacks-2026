@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AD_DURATION_MS, SONGS_PER_BREAK, getBreakMode } from "@/lib/settings";
 import { runCompute } from "@/lib/compute";
+import { PixelCharacter } from "./_components/PixelCharacter";
 
 type Song = { name: string; src: string };
 
@@ -157,7 +158,7 @@ export default function PlayerPage() {
         if (e.dataTransfer.files?.length) uploadFiles(e.dataTransfer.files);
       }}
     >
-      {dragActive && <div className="drop-overlay">Drop .mp3 files anywhere</div>}
+      {dragActive && <div className="drop-overlay">▼ Drop .mp3 files anywhere ▼</div>}
 
       {adVideo && (
         <div className="ad-modal" role="dialog" aria-label="Advertisement">
@@ -176,19 +177,44 @@ export default function PlayerPage() {
         </div>
       )}
 
-      {breakActive === "ad" && <div className="banner">● Ad break</div>}
-      {breakActive === "compute" && <div className="banner compute">● Computing</div>}
+      {breakActive === "ad" && <div className="banner">■ AD BREAK</div>}
+      {breakActive === "compute" && <div className="banner compute">■ COMPUTING</div>}
 
-      <section className="hero">
-        <div className="art" style={{ background: artGradient(current?.name) }}>
-          <div className="art-glyph">{(current?.name?.[0] ?? "♪").toUpperCase()}</div>
+      <section className={`hero ${isPlaying ? "is-playing" : ""}`}>
+        <div className="character-mount" aria-hidden="true">
+          <PixelCharacter className="pixel-char" />
         </div>
+
+        {isPlaying && current && (
+          <div className="notes" aria-hidden="true">
+            <span>♪</span>
+            <span>♫</span>
+            <span>♪</span>
+            <span>♬</span>
+          </div>
+        )}
+
+        {/* Stereo cabinet: speaker · CRT screen · speaker */}
+        <div className="stereo">
+          <span className="speaker speaker-left" aria-hidden="true">
+            <span className="cone" />
+          </span>
+          <div className="art" style={{ background: artGradient(current?.name) }}>
+            <div className="art-glyph">{(current?.name?.[0] ?? "♪").toUpperCase()}</div>
+          </div>
+          <span className="speaker speaker-right" aria-hidden="true">
+            <span className="cone" />
+          </span>
+        </div>
+
         <div className="hero-info">
-          <div className="eyebrow">Now Playing</div>
-          <div className="title">{current?.name ?? "Nothing queued"}</div>
+          <div className="eyebrow">
+            ▶ TRACK {songs.length ? String(index + 1).padStart(2, "0") : "—"} / {String(songs.length).padStart(2, "0")}
+          </div>
+          <div className="title">{current?.name ?? "—— INSERT TAPE ——"}</div>
           <div className="meta">
-            <span className="chip">{songs.length} tracks</span>
-            <span className="chip dim">break in {breakIn}</span>
+            <span className="chip">{songs.length} TAPES</span>
+            <span className="chip dim">BREAK IN {breakIn}</span>
           </div>
 
           <div className="scrub" onClick={seek}>
@@ -200,11 +226,11 @@ export default function PlayerPage() {
           </div>
 
           <div className="controls">
-            <button className="icon" onClick={prev} disabled={!songs.length} aria-label="Previous">‹‹</button>
+            <button className="icon" onClick={prev} disabled={!songs.length} aria-label="Previous">|◀</button>
             <button className="play" onClick={toggle} disabled={!current} aria-label={isPlaying ? "Pause" : "Play"}>
-              {isPlaying ? "❚❚" : "▶"}
+              {isPlaying ? "II" : "▶"}
             </button>
-            <button className="icon" onClick={next} disabled={!songs.length} aria-label="Next">››</button>
+            <button className="icon" onClick={next} disabled={!songs.length} aria-label="Next">▶|</button>
           </div>
         </div>
         <audio
@@ -221,31 +247,49 @@ export default function PlayerPage() {
       <section className="library">
         <div className="library-head">
           <div>
-            <div className="lib-title">Library</div>
+            <div className="lib-title">★ LIBRARY</div>
             <div className="muted">{songs.length} songs · drag mp3s anywhere</div>
           </div>
-          <button className="ghost sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? "Uploading…" : uploadMsg ?? "+ Add files"}
+          <button
+            type="button"
+            className="ghost sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? "UPLOADING…" : uploadMsg ?? "+ ADD FILES"}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/mpeg,.mp3"
+            accept="audio/mpeg,.mp3,audio/*"
             multiple
-            hidden
-            onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }}
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              top: "auto",
+              width: "1px",
+              height: "1px",
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            onChange={(e) => {
+              if (e.target.files?.length) uploadFiles(e.target.files);
+              e.target.value = "";
+            }}
           />
         </div>
 
         {songs.length === 0 ? (
-          <div className="empty">
-            <div style={{ fontSize: 32, opacity: 0.5 }}>♫</div>
-            <div className="muted" style={{ marginTop: 8 }}>Drop .mp3 files here to begin</div>
+          <div className="empty crate">
+            <div className="crate-glyph">♫</div>
+            <div className="muted">▼ DROP TAPES HERE ▼</div>
+            <div className="crate-sub">.mp3 only · drag &amp; drop or use the orange crate button</div>
           </div>
         ) : (
           <ul className="track-list">
             {songs.map((s, i) => {
               const playing = i === index && isPlaying;
+              const side = i % 2 === 0 ? "SIDE A" : "SIDE B";
               return (
                 <li
                   key={s.src}
@@ -254,6 +298,7 @@ export default function PlayerPage() {
                 >
                   <span className="track-num">{playing ? "♪" : String(i + 1).padStart(2, "0")}</span>
                   <span className="track-name">{s.name}</span>
+                  <span className="track-side">{side}</span>
                 </li>
               );
             })}
@@ -264,17 +309,19 @@ export default function PlayerPage() {
   );
 }
 
+// Sweetie 16 palette — flat pixel-art fills, no gradients.
 function artGradient(seed?: string): string {
   const palette = [
-    ["#8b7cff", "#6ea8ff"],
-    ["#ff7eb6", "#a16bff"],
-    ["#5eead4", "#3b82f6"],
-    ["#fb923c", "#f43f5e"],
-    ["#facc15", "#f97316"],
-    ["#34d399", "#06b6d4"],
+    "#41a6f6", // cyan
+    "#a7f070", // green
+    "#ffcd75", // yellow
+    "#ef7d57", // orange
+    "#b13e53", // red
+    "#73eff7", // cyan-bright
+    "#3b5dc9", // blue
+    "#5d275d", // purple
   ];
   let h = 0;
   for (const c of seed ?? "") h = (h * 31 + c.charCodeAt(0)) | 0;
-  const [a, b] = palette[Math.abs(h) % palette.length];
-  return `linear-gradient(135deg, ${a}, ${b})`;
+  return palette[Math.abs(h) % palette.length];
 }
