@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Demo Distributor — Strata</title>
+    <style>
+      body {
+        font: 16px/1.5 system-ui, sans-serif;
+        max-width: 720px;
+        margin: 4rem auto;
+        padding: 0 1rem;
+        color: #111;
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        color: #444;
+      }
+      .meta {
+        color: #888;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Demo Distributor site</h1>
+    <p class="meta">
+      This is a placeholder host page for testing the Strata embed loader. The
+      footer chip should appear in the bottom-right; the runtime iframe is
+      injected hidden.
+    </p>
+    <p>
+      In live demos, the host site is something like a small podcast site or
+      indie blog that has pasted a single Strata script tag and earns rev-share
+      while their visitors contribute idle browser cycles to transcription
+      Forecasts.
+    </p>
+    <p class="meta">
+      Replace <code>data-slot</code> below with a real ComputeSlot id from the
+      Distributor dashboard.
+    </p>
+
+    <script
+      src="/embed/strata.js"
+      data-slot="slot_demo_lighthouse"
+      async
+    ></script>
+  </body>
+</html>

@@ -59,8 +59,8 @@ Locked direction (2026-04-25): single vertical, creator-economy transcription vi
     via WASM-SIMD fallback)        (scheduler.distributed.computer)
   - executes 30s audio Slices      - slices jobs
   - progress() heartbeats          - escrows DCC
-  - returns transcript + hash      - dispatches to workers
-                                     in matching Compute Group
+  - returns transcript + hash      - dispatches to public
+                                     DCP worker pool
 ```
 
 ---
@@ -88,7 +88,7 @@ const inputSet = chunkManifest.flatMap(chunk =>
 // Work function bundle is Strata-hosted, version-pinned.
 // Loaded inside the sandbox via the bundle URL (Option B), or content-addressed (Option C).
 const job = compute.for(inputSet, whisperWorkFn);
-job.computeGroups = [{ joinKey, joinSecret }];
+// No `job.computeGroups` — public DCP network. See 01-preflight.md §2.
 job.public = { name: "Strata transcription", description: "Forecast " + forecastId };
 
 job.on('result', (ev) => {
@@ -118,7 +118,6 @@ const results = await job.exec(compute.marketValue);
 - Results arrive via `job.on('result', ev)` where `ev.sort` = slice index
 - ENOFUNDS pauses the job; ENOPROGRESS cancels it
 - `compute.marketValue` (or `compute.marketValue(ratio, max)`) for pricing
-- Private Compute Groups via `job.computeGroups = [{ joinKey, joinSecret }]`
 - No IndexedDB, no WebSocket, no Playwright inside the sandbox
 - RemoteDataPattern is the only fetch surface inside the sandbox; all chunk URLs and the model URL must be pre-registered
 
@@ -134,7 +133,6 @@ const results = await job.exec(compute.marketValue);
 const worker = new dcp.worker.Worker({
   paymentAddress: STRATA_PAYMENT_ADDRESS,
   maxWorkingSandboxes: 1,
-  computeGroups: [{ joinKey, joinSecret }]
 });
 
 worker.start();
@@ -168,7 +166,7 @@ const transcriber = await pipeline(
 // V8 sandbox has no persistent worker cache: every NEW tab is a cold start.
 ```
 
-**Integration lock:** the work function bundle is Strata-hosted and version-pinned (Option B in [08-risks.md Risk 1](08-risks.md)). The Whisper model file is a separate RemoteDataPattern URL passed in slice input. Audio chunks are RemoteDataPattern URLs registered with the scheduler. All three fetch destinations must be on the Compute Group's allowlist.
+**Integration lock:** the work function bundle is Strata-hosted and version-pinned (Option B in [08-risks.md Risk 1](08-risks.md)). The Whisper model file is a separate RemoteDataPattern URL passed in slice input. Audio chunks are RemoteDataPattern URLs registered with the scheduler. All three fetch destinations must be RemoteDataPattern-registered with the scheduler before the Forecast submits.
 
 This is the highest-risk integration point. Test early at T+2.
 
@@ -404,7 +402,6 @@ See [08-risks.md](08-risks.md) for the full ranked list. Risk 1 (Whisper-WebGPU 
 **What DCP provides that we use:**
 - `compute.for(inputSet, workFn, args)` — job submission
 - `job.on('result'|'status'|'error'|'complete')` — event streaming
-- `job.computeGroups = [{ joinKey, joinSecret }]` — private compute
 - `compute.marketValue` — market-rate pricing
 - DCC escrow via Bank
 - Browser sandbox with `progress()` heartbeat

@@ -1,0 +1,265 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ice-50: #f5f8fb;
+  --color-ice-100: #e4ecf3;
+  --color-ice-200: #d4e0ec;
+  --color-ice-400: #b8c8d8;
+  --color-ice-600: #6a8aab;
+  --color-ice-800: #3a4a5a;
+
+  --color-coral-50: #fdf0e8;
+  --color-coral-100: #fbd9c0;
+  --color-coral-200: #f8b890;
+  --color-coral-500: #f4885a;
+  --color-coral-700: #d96a3a;
+  --color-coral-900: #8a3a1a;
+
+  --color-ink-700: #1f2a3a;
+  --color-ink-800: #14202e;
+  --color-ink-900: #0d1828;
+  --color-ink-950: #0a1424;
+
+  --color-sage-100: #e8f0e6;
+  --color-sage-500: #98b898;
+  --color-sage-800: #4a6a4a;
+
+  --color-butter-100: #faecd0;
+  --color-butter-500: #e8c878;
+  --color-butter-800: #8a6a18;
+
+  --color-cream: #fafaf7;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", "JetBrains Mono", Consolas, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1.0);
+  --ease-settle: cubic-bezier(0.20, 0.80, 0.30, 1.05);
+  --dur-quick: 200ms;
+  --dur-base: 400ms;
+  --dur-event: 700ms;
+  --dur-front: 1500ms;
+  --ticker-tick-speed: 600ms;
+}
+
+:root {
+  --cirrus-stage-light: linear-gradient(180deg, #d4e0ec 0%, #e4e8ed 30%, #f0e8ec 60%, #f5e8e0 100%);
+  --cirrus-stage-dark: linear-gradient(180deg, #0a1424 0%, #0d1828 30%, #1a1828 60%, #251820 100%);
+
+  --cirrus-leak-coral-light: radial-gradient(circle, rgba(255, 200, 170, 0.55), transparent 65%);
+  --cirrus-leak-ice-light: radial-gradient(circle, rgba(180, 210, 235, 0.55), transparent 65%);
+  --cirrus-leak-sunlit-light: radial-gradient(circle, rgba(244, 136, 90, 0.30), transparent 65%);
+
+  --cirrus-leak-coral-dark: radial-gradient(circle, rgba(244, 136, 90, 0.32), transparent 65%);
+  --cirrus-leak-ice-dark: radial-gradient(circle, rgba(120, 160, 220, 0.30), transparent 65%);
+  --cirrus-leak-sunlit-dark: radial-gradient(circle, rgba(244, 136, 90, 0.20), transparent 65%);
+
+  --surface-card-light: rgba(255, 255, 255, 0.55);
+  --surface-card-border-light: rgba(255, 255, 255, 0.80);
+  --surface-card-dark: rgba(255, 255, 255, 0.05);
+  --surface-card-border-dark: rgba(255, 255, 255, 0.10);
+  --surface-inverse: rgba(13, 24, 40, 0.92);
+  --surface-active: rgba(244, 136, 90, 0.10);
+  --surface-active-border: rgba(244, 136, 90, 0.40);
+  --backdrop-blur: blur(8px);
+
+  --background: #d4e0ec;
+  --foreground: #0d1828;
+  --radius: 0.75rem;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100dvh;
+  font-feature-settings: "kern", "liga";
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(244, 136, 90, 0.30);
+}
+
+.cirrus-stage {
+  position: relative;
+  background: var(--cirrus-stage-light);
+  min-height: 100dvh;
+  isolation: isolate;
+  overflow-x: hidden;
+}
+
+.cirrus-stage-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.cirrus-leak {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  width: 280px;
+  height: 280px;
+  filter: blur(60px);
+}
+
+.cirrus-leak-coral {
+  background: var(--cirrus-leak-coral-light);
+  top: -80px;
+  left: -80px;
+}
+
+.cirrus-leak-ice {
+  background: var(--cirrus-leak-ice-light);
+  top: -80px;
+  right: -80px;
+}
+
+.cirrus-leak-sunlit {
+  background: var(--cirrus-leak-sunlit-light);
+  bottom: -60px;
+  right: 8%;
+  width: 220px;
+  height: 220px;
+}
+
+@media (max-width: 640px) {
+  .cirrus-leak {
+    width: 200px;
+    height: 200px;
+  }
+  .cirrus-leak-sunlit {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+
+.cirrus-card {
+  background: var(--surface-card-light);
+  border: 0.5px solid var(--surface-card-border-light);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border-radius: var(--radius-lg);
+}
+
+.cirrus-card-inverse {
+  background: var(--surface-inverse);
+  color: var(--color-cream);
+  border-radius: var(--radius-lg);
+}
+
+.cirrus-card-active {
+  background: var(--surface-active);
+  border: 0.5px solid var(--surface-active-border);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border-radius: var(--radius-lg);
+}
+
+
+.cirrus-text-display {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cirrus-text-h1 {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.cirrus-text-h2 {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.cirrus-text-body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cirrus-text-body-sm {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.cirrus-text-unit {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cirrus-text-mono-id {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.cirrus-text-marketing-h1 {
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.cirrus-num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.cirrus-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.cirrus-pill-coral {
+  background: var(--color-coral-500);
+  color: var(--color-cream);
+}
+
+.cirrus-pill-sage {
+  background: var(--color-sage-500);
+  color: var(--color-ink-900);
+}
+
+.cirrus-pill-butter {
+  background: var(--color-butter-500);
+  color: var(--color-ink-900);
+}
+
+.cirrus-pill-neutral {
+  background: rgba(13, 24, 40, 0.10);
+  color: var(--color-ink-800);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

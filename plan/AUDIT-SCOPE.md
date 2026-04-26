@@ -40,7 +40,6 @@ If neither holds, the issue is documented but not fixed. Production hardening is
 | Idempotency key on Forecast submit endpoint | Single-laptop demo, no concurrent submits |
 | Stripe Connect production-grade webhook signing | Payments are mocked end-to-end |
 | Multi-region failover for the Strata scheduler bridge | Single dev instance behind ngrok is fine |
-| Distributor-side joinSecret rotation (signed short-lived JWTs) | Static secret in config endpoint is acceptable for 36 hours |
 
 ## Single source of truth for "is this in scope"
 

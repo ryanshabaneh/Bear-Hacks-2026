@@ -10,7 +10,7 @@ Numbered roughly by likelihood × impact. Risk 1 is the one most likely to kill 
 
 **Mitigation:** BE3 spike at T+2. Three paths in priority order:
 - **A.** Strata-hosted version-pinned bundle (`https://cdn.strata.app/runtime/whisper-work-v1.js`) loaded inside the sandbox via DCP's allowed-fetch surface.
-- **B.** Content-addressed bundle (SHA in path) registered as a RemoteDataPattern entry, used if the `strata-2026` Compute Group enforces hash-pinned URLs.
+- **B.** Content-addressed bundle (SHA in path) registered as a RemoteDataPattern entry, used if the scheduler enforces hash-pinned URLs.
 - **C.** Sandbox `fetch()` to a localhost transcription endpoint (a 30-line Express wrapping transformers.js running on the demo laptop). Real DCP scheduler, fake distribution.
 
 Path C always works. The "wow" survives because the DCP scheduler is still real, the model is still really running on a laptop GPU — only the location changes.
@@ -97,13 +97,13 @@ Path C always works. The "wow" survives because the DCP scheduler is still real,
 - During run, watch the timer; if at T+2:30 the Catchment is <60% sealed, narrate "let's check the Distributor dashboard" to buy 30s, then return.
 - Pre-baked Catchment as fallback if the live run blows past 4 minutes.
 
-## Risk 10 — DCP work function can't access Compute Group secret
+## Risk 10 — Public DCP network worker pool empty
 
-**Risk:** [04-embed.md](04-embed.md) bakes the joinSecret into the runtime iframe via the `/api/embed/[slotId]/config` endpoint. If CORS or auth misfires, the worker can't join the group.
+**Risk:** Strata runs on the public DCP network (no Compute Group — see [01-preflight.md §2](01-preflight.md)). If no public DCP workers are online when we submit, slices stay queued and the live demo stalls.
 
-**Likelihood:** Low. Impact: workers don't pick up our slices, slices stay queued.
+**Likelihood:** Low during waking hours, medium overnight.
 
-**Mitigation:** test at T+10. Curl the config endpoint from the runtime origin, check the JSON. Fallback: omit `computeGroups` entirely and accept any DCP worker (slice routing degrades).
+**Mitigation:** the demo Distributor sites + judge laptop tabs ARE the worker pool. Each tab opened on `embed.strata.app` joins as a DCP worker. Open ≥6 tabs across teammates' laptops 60s before judging starts. If public-network density still looks thin, the pre-baked Catchment fallback (Risk 2) replays a real recorded run.
 
 ---
 

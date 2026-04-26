@@ -276,8 +276,6 @@ APP_BASE_URL=http://localhost:3000   # omit on Vercel preview, set on prod
 # Server-to-server (Strata Distributor callback bus)
 DCP_WORKER_SHARED_SECRET=...
 DCP_SUBMIT_WORKER_URL=https://...ngrok.app
-STRATA_GROUP_KEY=strata-2026
-STRATA_GROUP_SECRET=...
 
 # Frontend
 NEXT_PUBLIC_STRIPE_PK=pk_test_...     # Stripe Connect test mode for Distributor payouts

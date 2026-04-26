@@ -88,7 +88,7 @@ Subdomain split is for cookie isolation and CORS lock. Anywhere earlier drafts r
 
 ## runtime.html (the actual worker)
 
-Served by Cloudflare Pages at `https://embed.strata.app/runtime.html`. Receives `slot=<slotId>` query param, fetches its config (including the bake-in joinSecret) from the Strata API, then starts a DCP worker.
+Served by Cloudflare Pages at `https://embed.strata.app/runtime.html`. Receives `slot=<slotId>` query param, fetches its config (paymentAddress only) from the Strata API, then starts a DCP worker on the public network.
 
 ```html
 <!doctype html>
@@ -104,7 +104,7 @@ Served by Cloudflare Pages at `https://embed.strata.app/runtime.html`. Receives 
   const slotId = params.get('slot');
   if (!slotId) throw new Error('missing slot');
 
-  // Fetch slot config — returns paymentAddress + joinKey + joinSecret
+  // Fetch slot config — returns paymentAddress only (public DCP network, no Compute Group)
   const cfg = await fetch(
     `https://strata.app/api/embed/${encodeURIComponent(slotId)}/config`
   ).then(r => r.json());
@@ -114,7 +114,6 @@ Served by Cloudflare Pages at `https://embed.strata.app/runtime.html`. Receives 
   const worker = new dcp.worker.Worker({
     paymentAddress:      cfg.paymentAddress,
     maxWorkingSandboxes: 1,
-    computeGroups: [{ joinKey: cfg.joinKey, joinSecret: cfg.joinSecret }],
   });
 
   worker.on('payment', (ev) => {
@@ -142,13 +141,13 @@ Note: module scripts allow top-level `await` natively. Do not wrap the script bo
 The DCP work function does not import `transformers.js` from jsdelivr at runtime. Bundle is Strata-hosted and version-pinned per Forecast:
 
 - Primary: `https://cdn.strata.app/runtime/whisper-work-v1.js` (transformers.js v3 inlined, audio decode helpers, `progress()` schedule).
-- Fallback: content-addressed URL (SHA in path) registered as a RemoteDataPattern entry, used if the scheduler's group policy requires hash-pinning.
+- Fallback: content-addressed URL (SHA in path) registered as a RemoteDataPattern entry, used if the scheduler enforces hash-pinning.
 
-The Whisper-base ONNX model file (~150MB) is fetched as a separate RemoteDataPattern URL passed in slice input. Do not bundle weights in the work function. BE3 confirms which option the `strata-2026` Compute Group accepts during the spike.
+The Whisper-base ONNX model file (~150MB) is fetched as a separate RemoteDataPattern URL passed in slice input. Do not bundle weights in the work function. BE3 confirms the registration path during the spike.
 
-## Compute Group secret bake-in
+## Slot config endpoint
 
-The `joinSecret` cannot live in the static `runtime.html`. It's served per-slot by the Strata API, scoped to that Distributor's slot:
+The runtime iframe needs the Distributor's `paymentAddress` so DCP credits the right account when slices land on a Strata-injected worker. Served per-slot by the Strata API:
 
 [app/api/embed/[slotId]/config/route.ts]:
 ```ts
@@ -164,8 +163,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slotId: 
   return Response.json({
     active:         true,
     paymentAddress: slot.distributor.dcpPaymentAddress,
-    joinKey:        process.env.STRATA_GROUP_KEY,
-    joinSecret:     process.env.STRATA_GROUP_SECRET,    // intentionally exposed to runtime origin only
   }, { headers: corsHeaders() });
 }
 
@@ -177,7 +174,7 @@ function corsHeaders() {
 }
 ```
 
-CORS locks the config endpoint to the runtime origin. Anyone CAN still fetch via curl and see the secret — for hackathon this is acceptable. For production: use signed short-lived JWTs from Strata API, exchanged by the runtime iframe via a server-side join helper.
+CORS locks the config endpoint to the runtime origin. The response contains only `paymentAddress` (no secrets), so curl-leaking is a non-issue.
 
 ## Footer chip states
 

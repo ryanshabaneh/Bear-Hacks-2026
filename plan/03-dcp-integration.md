@@ -42,8 +42,6 @@ Pin `dcp-client` to a specific version. Do not use `latest` in package.json.
 [dcp-submit-worker/.env]:
 ```
 PORT=3001
-STRATA_GROUP_KEY=strata-2026
-STRATA_GROUP_SECRET=<from DCP portal — same as Next.js .env.local>
 DCP_WORKER_SHARED_SECRET=<openssl rand -hex 32 — same as Next.js .env.local>
 DCP_MODE=live          # or "fallback" — see Risk 2 in 08-risks.md
 DCP_SCHEDULER=https://scheduler.distributed.computer
@@ -52,7 +50,7 @@ WHISPER_MODEL_URL=https://cdn.strata.app/models/whisper-base/model.onnx
 ORACLE_SAMPLE_RATE=0.02   # 1-3% of Slices spot-checked against server-side oracle
 ```
 
-The `~/.dcp/default.keystore` and `~/.dcp/id.keystore` files must exist on the machine running this — see [01-preflight.md §1](01-preflight.md).
+The `~/.dcp/bearhacks.keystore` and `~/.dcp/id.keystore` files must exist on the machine running this — see [01-preflight.md §1](01-preflight.md).
 
 ## Why a separate process?
 
@@ -89,7 +87,11 @@ async function initDCP() {
   compute = require('dcp/compute');
   wallet  = require('dcp/wallet');
 
-  const acct = await wallet.get('default');
+  // No-passphrase keystores. Override the prompt hook so DCP never blocks on stdin
+  // mid-Forecast if a future keystore happens to be passphrase-protected.
+  wallet.passphrasePrompt = async () => '';
+
+  const acct = await wallet.get('bearhacks');
   const balance = await acct.getBalance();
   console.log(`DCP initialized. Balance: ${balance} DCC`);
   if (balance < 100) console.warn('LOW BALANCE — top up before demo');
@@ -164,8 +166,7 @@ async function runForecast(forecastId, forecastSpec, callbackUrl) {
   async function whisperWorkFn(input) {
     progress(0);
 
-    // Fetch the work-function bundle from the Strata-hosted, version-pinned URL.
-    // RemoteDataPattern; bundle URL must be pre-registered with the Compute Group.
+    // Fetch the work-function bundle from the Strata-hosted, version-pinned URL via RemoteDataPattern.
     const { transcribe } = await import(input.bundleUrl);
     progress(0.2);
 
@@ -195,12 +196,9 @@ async function runForecast(forecastId, forecastSpec, callbackUrl) {
   const job = compute.for(inputSet, whisperWorkFn);
   job.public.name        = `Strata: Forecast ${forecastId}`;
   job.public.description = `Whisper transcription, ${forecastSpec.audioHoursTotal} audio-hours`;
-  job.computeGroups = [{
-    joinKey:    process.env.STRATA_GROUP_KEY,
-    joinSecret: process.env.STRATA_GROUP_SECRET,
-  }];
+  // No `job.computeGroups` — we run on the public DCP network. See 01-preflight.md §2.
 
-  const paymentAccount = await wallet.get('default');
+  const paymentAccount = await wallet.get('bearhacks');
 
   // Tell Next.js the DCP job id when accepted by scheduler.
   job.on('accepted', () => {
@@ -492,7 +490,7 @@ Verify the exact `compute.marketValue` signature against `/docs/dcp-docs/Compute
 4. **Keystores live on disk** (`~/.dcp/`). Never reference them from frontend or Vercel functions.
 5. **ENOFUNDS pauses the job; ENOPROGRESS cancels it.** Pre-fund and call `progress()` defensively.
 6. **`localExec()` for testing** — `npm i dcp-worker` then `await job.localExec()` runs slices on the submit worker machine. Use during BE3 development.
-7. **No IndexedDB / no WebSocket / no Playwright in the V8 sandbox.** RemoteDataPattern is the only fetch surface. All chunk URLs, the bundle URL, and the model URL must be pre-registered with the Compute Group.
+7. **No IndexedDB / no WebSocket / no Playwright in the V8 sandbox.** RemoteDataPattern is the only fetch surface. All chunk URLs, the bundle URL, and the model URL must be RemoteDataPattern-registered with the scheduler.
 
 ## Fallback mode (Risk 2 mitigation)
 

@@ -9,34 +9,26 @@ DCP keystores can only be created via the Portal (no CLI). Source: [docs/dcp-doc
 Steps:
 1. Create an account at https://dcp.cloud
 2. In the Portal → Wallet, create two keystores:
-   - **`default`** — bank account keystore (will hold DCC, pays for jobs)
+   - **`bearhacks`** — bank account keystore (will hold DCC, pays for jobs)
    - **`id`** — identity keystore (signs requests)
-3. Download both as JSON files; place in `~/.dcp/default.keystore` and `~/.dcp/id.keystore` on the BE3 dev machine AND on the Vultr VM where the DCP submit worker will run
-4. Pre-fund the `default` keystore with DCC. Hackathon contact (Distributive sponsor table) can grant a promo balance — ask for at least **5,000 DCC**. A 30-minute audio Forecast at k=2 redundancy = 60 chunks × 2 = 120 cycles. At ~10 DCC per cycle (verify with Distributive at the booth), one full demo Forecast costs ~1,200 DCC. 5,000 DCC covers ~4 demo runs plus margin.
+3. Download both as JSON files; place in `~/.dcp/bearhacks.keystore` and `~/.dcp/id.keystore` on the BE3 dev machine AND on the Vultr VM where the DCP submit worker will run
+4. Pre-fund the `bearhacks` keystore with DCC. Hackathon contact (Distributive sponsor table) can grant a promo balance — ask for at least **5,000 DCC**. A 30-minute audio Forecast at k=2 redundancy = 60 chunks × 2 = 120 cycles. At ~10 DCC per cycle (verify with Distributive at the booth), one full demo Forecast costs ~1,200 DCC. 5,000 DCC covers ~4 demo runs plus margin.
 5. Verify balance: in the Portal Bank tab, OR programmatically:
    ```js
    const wallet = require('dcp/wallet');
-   const acct = await wallet.get('default');
+   const acct = await wallet.get('bearhacks');
    console.log(await acct.getBalance());  // should be > 0
    ```
 
 **Test it works:** run the squaring tutorial from [docs/dcp-docs/Getting started](../docs/dcp-docs/Getting%20started%20—%20DCP%20%20documentation.md) end-to-end. If `await job.exec()` returns `[1, 2809, 4, 144]`, your keystore is funded and DCP works.
 
-## 2. Compute Group provisioning (BE3)
+## 2. Public DCP network (no Compute Group)
 
-Strata needs a private Compute Group so only embed.js workers pick up Strata jobs.
+The DCP Portal does not expose Compute Group provisioning to hackathon-tier accounts (verified 2026-04-26 — `Deploying jobs with remote input data.md` documents the SDK signature `job.computeGroups = [{ joinKey, joinSecret }]` but no Portal UI surface exists for creating one).
 
-Steps:
-1. In the Portal → Compute Groups, create a group named `strata-2026`
-2. Copy the `joinKey` and `joinSecret`
-3. Save to `.env` files (NOT committed):
-   ```
-   STRATA_GROUP_KEY=strata-2026
-   STRATA_GROUP_SECRET=<value from portal>
-   ```
-4. The `joinSecret` will be baked into served runtime.html per-Distributor at request time — see [04-embed.md](04-embed.md). Never commit it.
+**Decision:** stay on the public DCP network. `job.computeGroups` is omitted entirely. The runtime iframe joins as a regular DCP worker. Random DCP workers may also pick up Strata slices and Strata workers may also pick up other groups' jobs — both acceptable for the demo.
 
-**Fallback if portal can't issue a group in time:** set `job.computeGroups = []` and accept that random DCP workers may pick up slices. Demo still works; the "private fleet" story degrades to "public network."
+**Demo narrative impact:** the "Strata Sky" story still works because the visitor sees Strata's branded chip + iframe runtime on a Distributor's site. Under the hood the worker pool is public DCP, but that's invisible at the user surface.
 
 ## 3. Audio fixture (BE2 + FE)
 
@@ -135,9 +127,8 @@ The DCP submit worker needs a public callback URL so DCP can deliver results bac
 
 ## Preflight checklist (sign off before T+0)
 
-- [ ] `~/.dcp/default.keystore` exists and has DCC balance > 1000
+- [ ] `~/.dcp/bearhacks.keystore` exists and has DCC balance > 1000
 - [ ] `~/.dcp/id.keystore` exists
-- [ ] Compute Group `strata-2026` created, joinSecret in `.env`
 - [ ] [fixtures/audio-demo.json](../fixtures/audio-demo.json) committed (30-60 min total audio + ground-truth SRT references)
 - [ ] Whisper work-function bundle URL reachable: `curl https://cdn.strata.app/runtime/whisper-work-v1.js | head` returns JS
 - [ ] `dcp-submit-worker/SPIKE.md` documents which Whisper-in-sandbox path works

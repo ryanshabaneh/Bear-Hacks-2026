@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  auth0Sub    String?      @unique
+  email       String       @unique
+  role        String
+  createdAt   DateTime     @default(now())
+  distributor Distributor?
+  client      Client?
+}
+
+model Distributor {
+  id                     String        @id @default(cuid())
+  userId                 String        @unique
+  user                   User          @relation(fields: [userId], references: [id])
+  displayName            String
+  stripeConnectAccountId String?
+  dcpPaymentAddress      String
+  status                 String        @default("active")
+  cocAcceptedAt          DateTime?
+  cocVersionHash         String?
+  sites                  Site[]
+  slots                  ComputeSlot[]
+  settlements            Settlement[]
+}
+
+model Client {
+  id               String     @id @default(cuid())
+  userId           String     @unique
+  user             User       @relation(fields: [userId], references: [id])
+  displayName      String
+  stripeCustomerId String?
+  balanceCents     Int        @default(0)
+  tier             String     @default("provisional")
+  capabilities     String     @default("[\"English\"]")
+  expectedScale    String?
+  cocAcceptedAt    DateTime?
+  cocVersionHash   String?
+  reviewedAt       DateTime?
+  reviewNotes      String?
+  forecasts        Forecast[]
+}
+
+model Site {
+  id                     String        @id @default(cuid())
+  distributorId          String
+  distributor            Distributor   @relation(fields: [distributorId], references: [id])
+  domain                 String
+  category               String?
+  monthlyPageviewsBucket String?
+  verificationToken      String        @unique
+  verifiedAt             DateTime?
+  slots                  ComputeSlot[]
+}
+
+model ComputeSlot {
+  id                String      @id @default(cuid())
+  siteId            String
+  site              Site        @relation(fields: [siteId], references: [id])
+  distributorId     String
+  distributor       Distributor @relation(fields: [distributorId], references: [id])
+  name              String
+  allowedCategories String
+  maxTimePerNode    Int?
+  defaultPosition   String?
+  embedKey          String      @unique
+  active            Boolean     @default(true)
+}
+
+model Forecast {
+  id                  String       @id @default(cuid())
+  clientId            String
+  client              Client       @relation(fields: [clientId], references: [id])
+  inputManifestUrl    String
+  audioHoursTotal     Float
+  languageScope       String
+  outputFormats       String
+  webhookUrl          String?
+  status              String       @default("queued")
+  budgetCents         Int
+  budgetCyclesUsed    Int          @default(0)
+  workFunctionVersion String       @default("strata-whisper-v1")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  frontOpenedAt       DateTime?
+  sealedAt            DateTime?
+  slices              Slice[]
+  catchment           Catchment?
+  settlements         Settlement[]
+
+  @@index([clientId, status])
+  @@index([clientId])
+}
+
+model Slice {
+  id             String       @id @default(cuid())
+  forecastId     String
+  forecast       Forecast     @relation(fields: [forecastId], references: [id])
+  chunkIndex     Int
+  timestampStart Float
+  timestampEnd   Float
+  inputUrl       String
+  attemptNumber  Int
+  status         String       @default("issued")
+  nodePubkey     String?
+  outputHash     String?
+  outputText     String?
+  cyclesConsumed Int?
+  issuedAt       DateTime     @default(now())
+  completedAt    DateTime?
+  attestation    Attestation?
+
+  @@index([forecastId, chunkIndex, attemptNumber])
+}
+
+model Catchment {
+  id               String   @id @default(cuid())
+  forecastId       String   @unique
+  forecast         Forecast @relation(fields: [forecastId], references: [id])
+  bundleUrl        String
+  audioHoursSealed Float
+  slicesCompleted  Int
+  slicesTotal      Int
+  sealedAt         DateTime @default(now())
+
+  @@index([forecastId])
+}
+
+model Attestation {
+  id              String   @id @default(cuid())
+  sliceId         String   @unique
+  slice           Slice    @relation(fields: [sliceId], references: [id])
+  nodePubkey      String
+  nodeRegionGlyph String
+  outputHash      String
+  schedulerSig    String
+  ts              DateTime @default(now())
+
+  @@index([sliceId])
+}
+
+model Settlement {
+  id               String      @id @default(cuid())
+  forecastId       String
+  forecast         Forecast    @relation(fields: [forecastId], references: [id])
+  distributorId    String
+  distributor      Distributor @relation(fields: [distributorId], references: [id])
+  slotId           String
+  grossCents       Int
+  distributorCents Int
+  strataCents      Int
+  createdAt        DateTime    @default(now())
+}

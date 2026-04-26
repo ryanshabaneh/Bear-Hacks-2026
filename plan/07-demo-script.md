@@ -171,8 +171,8 @@ Add at end of Step 4:
 **Q: How does scale work without an admin queue?**
 > *Auto-tier-promotion. Provisional one hundred audio-hours per month — Verified at fifty audio-hours processed and seven days on platform — Trusted at five thousand audio-hours and sixty days. Capability ceilings are the safety rail, no human in the loop, no admin UI to ship.*
 
-**Q: How big is the Compute Group?**
-> *For the demo, six laptops. In production, every Distributor's visitor is potentially a Node. Scales with the Distributor's audience.*
+**Q: How big is the Sky?**
+> *For the demo, six laptops plus whatever public DCP workers are online. In production, every Distributor's visitor is potentially a Node. Scales with the Distributor's audience.*
 
 **Q: What's the Auth0 angle?**
 > *Two account types — Distributor and Client — with a custom `account_type` claim set by a post-login Action, role-gated layouts in Next.js 16 App Router via the v4 SDK's `proxy.ts` interceptor. Standard Universal Login. Nodes are anonymous by design — they have no Auth0 account.*

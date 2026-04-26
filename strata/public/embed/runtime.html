@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Strata runtime</title>
+  </head>
+  <body>
+    <script type="module">
+      const params = new URLSearchParams(location.search);
+      const slotId = params.get("slot");
+      const parentOrigin = location.ancestorOrigins[0] || "*";
+
+      function postParent(message) {
+        try {
+          parent.postMessage(message, parentOrigin);
+        } catch (err) {
+          console.warn("[strata runtime] postMessage failed", err);
+        }
+      }
+
+      if (!slotId) {
+        console.error("[strata runtime] missing slot");
+        postParent({ type: "strata:error", reason: "missing-slot" });
+        throw new Error("missing slot");
+      }
+
+      const cfg = await fetch(
+        `${location.origin}/api/embed/${encodeURIComponent(slotId)}/config`,
+      )
+        .then((r) => r.json())
+        .catch(() => ({ active: false }));
+
+      if (!cfg.active) {
+        console.log("[strata runtime] slot inactive");
+        postParent({ type: "strata:error", reason: "slot-inactive" });
+        throw new Error("slot inactive");
+      }
+
+      postParent({ type: "strata:ready", paymentAddress: cfg.paymentAddress });
+
+      let paused = false;
+      window.addEventListener("message", (ev) => {
+        if (ev.origin !== parentOrigin) return;
+        const data = ev.data || {};
+        if (data.type === "pause") paused = true;
+        if (data.type === "resume") paused = false;
+      });
+
+      async function startWorker() {
+        if (typeof window.dcp === "undefined") {
+          console.warn("[strata runtime] dcp-client not available; demo mode active");
+          return;
+        }
+
+        const worker = new window.dcp.worker.Worker({
+          paymentAddress: cfg.paymentAddress,
+          maxWorkingSandboxes: 1,
+        });
+
+        worker.on("payment", (ev) => {
+          if (paused) return;
+          if (ev.accepted) {
+            postParent({ type: "strata:tick", amount: ev.payment });
+          }
+        });
+        worker.on("error", (err) => {
+          console.error("[strata runtime] worker err", err);
+          postParent({ type: "strata:error", reason: String(err) });
+        });
+
+        await worker.start();
+      }
+
+      startWorker().catch((err) => {
+        console.error("[strata runtime] startWorker failed", err);
+      });
+    </script>
+  </body>
+</html>

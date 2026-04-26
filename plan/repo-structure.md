@@ -121,7 +121,7 @@ Bear-Hacks-2026/
 │       │       ├── embed/
 │       │       │   └── [slotId]/
 │       │       │       └── config/
-│       │       │           └── route.ts    (P2) — GET runtime config (paymentAddress + joinSecret), see 04-embed.md
+│       │       │           └── route.ts    (P2) — GET runtime config (paymentAddress only), see 04-embed.md
 │       │       ├── forecasts/
 │       │       │   ├── route.ts            (P2) — POST create Forecast
 │       │       │   └── [id]/
@@ -166,7 +166,7 @@ Bear-Hacks-2026/
 │
 ├── dcp-submit-worker/                      (P1) — Node.js, owned by 03-dcp-integration.md
 │   │                                       sibling of strata/, NOT inside it
-│   ├── .env                                (gitignored) — STRATA_GROUP_KEY, DCP_WORKER_SHARED_SECRET, etc.
+│   ├── .env                                (gitignored) — DCP_WORKER_SHARED_SECRET, DCP_SCHEDULER, etc.
 │   ├── .env.example                        committed template
 │   ├── .gitignore                          node_modules + .env
 │   ├── package.json                        full template in 03-dcp-integration.md §Setup (dcp-client pinned, NOT @latest)

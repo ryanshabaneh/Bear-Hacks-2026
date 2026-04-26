@@ -131,7 +131,7 @@ After Phase 1, the repo root will hold 4 sibling app dirs (`strata/`, `dcp-submi
 
 | Track | How Strata hits it |
 |---|---|
-| **Best Use of DCP** ($660 CAD) | One `compute.for()` call per Forecast with k=2 redundancy + server-side semantic-hash quorum + 1-3% oracle spot-check, private Compute Group, real DCC flow, browser worker via embed |
+| **Best Use of DCP** ($660 CAD) | One `compute.for()` call per Forecast with k=2 redundancy + server-side semantic-hash quorum + 1-3% oracle spot-check, public DCP network, real DCC flow, browser worker via embed |
 | **MLH Best Use of Gemma 4** (Google swag) | Gemma 4 1B as Forecast Composer translator (browser-WebGPU, plain-English → Forecast spec). Stretch — discard if not feasible. |
 | **MLH Best Use of Auth0** (headphones) | Real Universal Login (SDK v4.19) for Distributor + Client, custom `account_type` claim, post-login Action |
 | **Best UI/UX** ($700 CAD) | Two polished dashboards, atmospheric signature components (CycleBudgetMeter, SliceTicker, CatchmentAssembling), live SSE streaming, footer chip, prefers-reduced-motion fallback |

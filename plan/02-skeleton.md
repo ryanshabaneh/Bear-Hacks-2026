@@ -37,8 +37,6 @@ AUTH0_CLIENT_SECRET=
 AUTH0_AUDIENCE=https://strata-api
 APP_BASE_URL=http://localhost:3000
 NEXTAUTH_SECRET=<openssl rand -base64 32>
-STRATA_GROUP_KEY=strata-2026
-STRATA_GROUP_SECRET=
 DCP_WORKER_SHARED_SECRET=<openssl rand -hex 32>
 DCP_SUBMIT_WORKER_URL=http://localhost:3001
 WHISPER_MODEL_CDN_URL=https://cdn.strata.app/runtime/
@@ -288,7 +286,7 @@ app/
     sites/route.ts                        # POST create site
     sites/[id]/verify/route.ts            # GET poll verification, POST trigger check
     slots/route.ts                        # POST create slot
-    embed/[slotId]/config/route.ts        # GET runtime config (paymentAddress + joinSecret) — see 04-embed.md
+    embed/[slotId]/config/route.ts        # GET runtime config (paymentAddress only) — see 04-embed.md
     forecasts/route.ts                    # POST create Forecast
     forecasts/[id]/stream/route.ts        # GET SSE stream (Client Forecast Detail)
     distributors/[id]/stream/route.ts     # GET SSE stream (Distributor SliceTicker)
