@@ -19,22 +19,39 @@ export default function SettingsPage() {
     <main>
       <h1>Settings</h1>
       <div className="card">
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>Break behavior</div>
-        <div className="muted" style={{ marginBottom: 12 }}>
-          Choose what happens every 5 songs.
+        <div
+          className="lib-title"
+          style={{ marginBottom: 8 }}
+        >
+          ★ HOUSE RULES
+        </div>
+        <div className="muted" style={{ marginBottom: 18 }}>
+          Pick what happens every 5 songs.
         </div>
         <div className="toggle">
           <button
-            className={mode === "ad" ? "active" : "ghost"}
+            className={mode === "ad" ? "active" : ""}
             onClick={() => choose("ad")}
           >
-            Ad
+            <div style={{ fontSize: 14, marginBottom: 6 }}>► PLAY AD</div>
+            <div
+              className="muted"
+              style={{ fontSize: 14, textTransform: "none" }}
+            >
+              Standard. Watch a 30s spot.
+            </div>
           </button>
           <button
-            className={mode === "compute" ? "active" : "ghost"}
+            className={mode === "compute" ? "active" : ""}
             onClick={() => choose("compute")}
           >
-            No ad (compute)
+            <div style={{ fontSize: 14, marginBottom: 6 }}>■ SKIP AD (COMPUTE)</div>
+            <div
+              className="muted"
+              style={{ fontSize: 14, textTransform: "none" }}
+            >
+              Donate idle CPU. No ads, ever.
+            </div>
           </button>
         </div>
       </div>
