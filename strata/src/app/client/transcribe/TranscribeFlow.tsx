@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { AudioFilePicker, type AudioMeta } from "@/components/ui/AudioFilePicker";
 
 type Props = {
-  dcpMode: "live" | "cached" | "demo";
+  dcpMode: "live" | "cached" | "hardcode";
   fixtureName: string;
 };
 
@@ -177,7 +177,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function ModeBanner({ mode }: { mode: "live" | "cached" | "demo" }) {
+function ModeBanner({ mode }: { mode: "live" | "cached" | "hardcode" }) {
   const info: Record<typeof mode, { tone: "coral" | "sage" | "butter"; label: string; body: string }> = {
     live: {
       tone: "coral",
@@ -189,10 +189,10 @@ function ModeBanner({ mode }: { mode: "live" | "cached" | "demo" }) {
       label: "Cached replay",
       body: "Replaying a real DCP capture with original timing. The transcript and per-slice attestations are real outputs from a previous live run.",
     },
-    demo: {
+    hardcode: {
       tone: "butter",
-      label: "Demo replay",
-      body: "Synthetic in-process replay for smoke testing. Use live or cached for the real demo.",
+      label: "Hardcoded replay",
+      body: "Synthetic in-process replay with hardcoded transcript lines. Smoke fallback only.",
     },
   };
   const info_ = info[mode];

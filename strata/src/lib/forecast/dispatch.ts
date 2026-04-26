@@ -3,7 +3,7 @@ import { publishForecast } from "@/lib/sse/bus";
 import { runCachedReplay } from "./cached-replay";
 
 const REGIONS = ["NA-east", "NA-west", "EU", "APAC"] as const;
-const DEMO_LINES = [
+const HARDCODE_LINES = [
   "and that's where we picked up the trail of–",
   "we kept walking even though the path was unfamiliar.",
   "the air felt thinner up there, but somehow clearer.",
@@ -20,12 +20,12 @@ export type DispatchOptions = {
   distributorIds?: string[];
 };
 
-type DispatchMode = "cached" | "live" | "demo";
+type DispatchMode = "cached" | "live" | "hardcode";
 
 function readMode(): DispatchMode {
   const raw = (process.env.DCP_MODE ?? "live").toLowerCase();
   if (raw === "cached") return "cached";
-  if (raw === "demo") return "demo";
+  if (raw === "hardcode") return "hardcode";
   return "live";
 }
 
@@ -45,7 +45,7 @@ export async function dispatchForecast({
   }
 
   if (mode === "cached") {
-    const name = fixtureName ?? process.env.DCP_DEMO_FIXTURE ?? "slopify-demo";
+    const name = fixtureName ?? process.env.DCP_CACHED_FIXTURE ?? "slopify-demo";
     void runCachedReplay(forecastId, name).catch((err) => {
       console.error(`[dispatch] cached replay failed for ${forecastId}:`, err);
       void recordFailure(forecastId, err);
@@ -53,8 +53,8 @@ export async function dispatchForecast({
     return;
   }
 
-  void runDemoReplay(forecastId, distributorIds).catch((err) => {
-    console.error("[dispatch] demo replay error", err);
+  void runHardcodeReplay(forecastId, distributorIds).catch((err) => {
+    console.error("[dispatch] hardcode replay error", err);
   });
 }
 
@@ -211,10 +211,10 @@ async function runLive(forecastId: string) {
     ts: Date.now(),
   });
 
-  await createDemoSettlement(forecastId, forecast.budgetCents);
+  await createSettlement(forecastId, forecast.budgetCents);
 }
 
-async function runDemoReplay(forecastId: string, _distributorIds: string[]) {
+async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) {
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
     include: { slices: { orderBy: [{ chunkIndex: "asc" }, { attemptNumber: "asc" }] } },
@@ -246,7 +246,7 @@ async function runDemoReplay(forecastId: string, _distributorIds: string[]) {
     const region = REGIONS[Math.floor(Math.random() * REGIONS.length)];
     const cyclesConsumed = 12 + Math.floor(Math.random() * 6);
     const outputHash = randomHex(12);
-    const text = DEMO_LINES[i % DEMO_LINES.length];
+    const text = HARDCODE_LINES[i % HARDCODE_LINES.length];
     const nodePubkey = `node_${randomHex(8)}`;
 
     await prisma.slice.update({
@@ -267,7 +267,7 @@ async function runDemoReplay(forecastId: string, _distributorIds: string[]) {
         nodePubkey,
         nodeRegionGlyph: region,
         outputHash,
-        schedulerSig: "demo-replay-valid",
+        schedulerSig: "hardcode-replay-valid",
       },
     });
 
@@ -316,10 +316,10 @@ async function runDemoReplay(forecastId: string, _distributorIds: string[]) {
     ts: Date.now(),
   });
 
-  await createDemoSettlement(forecastId, forecast.budgetCents);
+  await createSettlement(forecastId, forecast.budgetCents);
 }
 
-async function createDemoSettlement(forecastId: string, grossCents: number) {
+async function createSettlement(forecastId: string, grossCents: number) {
   const slot = await prisma.computeSlot.findFirst({
     where: { active: true },
     orderBy: { id: "asc" },

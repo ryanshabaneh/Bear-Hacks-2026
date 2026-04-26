@@ -8,13 +8,10 @@ export default async function TranscribePage() {
   if (!session) redirect("/auth/login?account_type=client");
   if (session.user.role !== "client") redirect("/distributor");
 
+  const raw = (process.env.DCP_MODE ?? "live").toLowerCase();
   const dcpMode =
-    (process.env.DCP_MODE ?? "live").toLowerCase() === "cached"
-      ? "cached"
-      : (process.env.DCP_MODE ?? "live").toLowerCase() === "demo"
-        ? "demo"
-        : "live";
-  const fixtureName = process.env.DCP_DEMO_FIXTURE ?? "slopify-demo";
+    raw === "cached" ? "cached" : raw === "hardcode" ? "hardcode" : "live";
+  const fixtureName = process.env.DCP_CACHED_FIXTURE ?? "slopify-demo";
 
   return (
     <AppShell role="client" email={session.user.email}>
