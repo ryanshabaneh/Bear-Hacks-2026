@@ -1,10 +1,34 @@
 # Strata — Build Plan Overview
 
-BearHacks 2026 · April 24–26 · 36 hours
+BearHacks 2026 · April 24–26 · 36 hours · Team of 4 (FE + BE1 + BE2 + BE3)
+
+> **Source of truth:** [strata-architecture.md](strata-architecture.md). When 00–08 docs conflict with the architecture doc, the architecture doc wins.
 
 ## What we're building
 
-AdSense-replacement on DCP. Website owners (Distributors) replace ad slots with a `<script>` tag; visitor browsers silently run Gemma inference slices for paying researchers (Clients) and earn DCC for the Distributor.
+AdSense-replacement compute marketplace on DCP. Clients pay to run AI workloads; Distributors embed a `<script>` tag on their site and earn 68% revenue share; Nodes (visitor browsers) silently run Gemma inference slices.
+
+## Three actors (locked terminology — do not rename)
+
+- **Client** — orgs that submit compute jobs, pay per compute-second (Auth0 account)
+- **Distributor** — site owners who embed Strata, earn 68% revenue share (Auth0 account)
+- **Node** — end-user browser running embed.js. **No signup, no account, no PII.** Surfaces only the footer chip + "What is this?" modal.
+
+Economic model: Client pays USD → Strata escrows DCC on DCP → Distributor gets 68%, Strata keeps 32%. Nodes are unpaid; ad-free experience is the value exchange.
+
+## Stack (one canonical choice — do not branch)
+
+| Layer | Technology |
+|---|---|
+| App framework | Next.js 14 (App Router), one project, role-gated by Auth0 claim |
+| ORM / DB | Prisma + SQLite (dev) / Neon Postgres (prod) |
+| Live updates | Server-Sent Events (SSE) — `/api/jobs/:id/stream` |
+| Auth | Auth0 Universal Login + stub mode (env-gated `AUTH_MODE=stub\|auth0`) |
+| DCP submit worker | Node.js + `dcp-client`, runs on Vultr VM (or local with ngrok) |
+| Embed runtime | IIFE (`strata.js`) on Cloudflare Pages → injects iframe → DCP browser worker |
+| AI model | Gemma 3 1B-IT ONNX via `@huggingface/transformers` + WebGPU |
+| Payments | Stripe Connect (mocked — Elements UI in test mode, no real money flow) |
+| Hosting | Vercel (Next.js app), Vultr (DCP submit worker), Cloudflare Pages (embed) |
 
 ## Live demo path (phases 3–6 only)
 
@@ -15,47 +39,58 @@ AdSense-replacement on DCP. Website owners (Distributors) replace ad slots with 
 5. Read swarm accuracy aloud (target: ~58% vs 23% single-shot)
 6. Optional: show embed footer chip on demo site
 
-Phases 1–2 (Auth0 signup) and 7 (Stripe payout) = screenshots only.
+Phases 1–2 (Auth0 signup, Stripe funding) and 7 (Stripe Connect payout) = screenshots in deck/Devpost.
 
-## Stack
+## Build phases (mirrors [strata-architecture.md](strata-architecture.md))
 
-| Layer | Technology |
-|---|---|
-| Backend | Node.js + Express, WebSocket (ws) |
-| Frontend | React (Vite) |
-| Auth | Auth0 Universal Login |
-| Compute | DCP (`compute.for()`) |
-| AI model | Gemma 3 1B-IT ONNX via `@huggingface/transformers` + WebGPU |
-| Payments | Stripe (mocked — fake UI only) |
+| Phase | Hours | Goal |
+|---|---|---|
+| **0. Preflight** | T-1 → 0 | Keystore funded, AIME fixture in repo, Gemma sandbox spike confirmed — see [01-preflight.md](01-preflight.md) |
+| **1. Skeleton + DCP Proof** | 0–6 | App boots, stub auth works, `compute.for()` returns one Gemma result — see [02-skeleton.md](02-skeleton.md) + [03-dcp-integration.md](03-dcp-integration.md) |
+| **2. Vertical Slices** | 6–14 | Each dashboard renders, job submission API works, embed loads — see [04-embed.md](04-embed.md) + [05-frontend.md](05-frontend.md) |
+| **3. Integration + Verifier** | 14–22 | End-to-end demo path runs once; verifier pass implemented; SSE live |
+| **4. Polish + Demo Prep** | 22–30 | Real Auth0 swap-in, fallback mode, 5x dry-runs |
+| **5. Demo Video + Submit** | 30–36 | 90-second video, Devpost description, submit at T-35:50 |
 
-## Repo structure
+Detailed task ownership per phase is in [strata-architecture.md](strata-architecture.md#build-phases-and-task-assignment).
+
+## Repo layout (target)
 
 ```
 strata/
-  backend/          # Node.js DCP job orchestrator + REST + WebSocket
-  frontend/         # React app (Client dash + Distributor dash + Landing)
-  embed/            # embed.js + worker.js (the script Distributors paste)
-  demo-site/        # Fake ML blog with embed installed (for demo step 6)
+  app/                   # Next.js App Router (one project, role-gated)
+    (marketing)/         # landing, signup
+    distributor/         # Distributor dashboard
+    client/              # Client dashboard
+    api/
+      jobs/              # POST job, GET stream
+      slots/             # Distributor slots
+      embed/[slotId]/    # serves embed.js with baked secret
+      slices/[id]/result # callback from DCP submit worker
+  prisma/
+    schema.prisma        # User/Distributor/Client/Site/Job/Slice/Settlement
+  dcp-submit-worker/     # Node.js — runs on Vultr, calls compute.for()
+    src/index.js
+    src/rollout.js       # Phase 4 job
+    src/verifier.js      # Phase 5 job
+    src/aggregator.js
+  embed/                 # Cloudflare Pages
+    strata.js            # IIFE entry, injects iframe
+    runtime.html         # iframe content, loads dcp-client + worker
+    chip.css
+  demo-site/             # Static fake ML blog with embed installed (for demo step 6)
+  fixtures/
+    aime-2024.json       # 30 AIME problems + ground truth answers
+    single-shot-baseline.json  # pre-computed Gemma single-shot results for the comparison
 ```
 
-## Build order (time-boxed)
+## Prize tracks
 
-| Hour | Milestone |
+| Track | How Strata hits it |
 |---|---|
-| 0-2 | Backend skeleton: Express + DCP init + keystore setup |
-| 2-4 | DCP job submission working (Node.js localExec first) |
-| 4-6 | embed.js: DCP Worker registration + Gemma loading |
-| 6-10 | Client dashboard: job form + result streaming |
-| 10-14 | Verifier pass (second compute.for()) |
-| 14-18 | Distributor dashboard: live earnings ticks |
-| 18-22 | Auth0 wired in (both account types) |
-| 22-28 | Polish: accuracy comparison panel, animations, demo site |
-| 28-34 | End-to-end rehearsal + fix bugs |
-| 34-36 | Devpost submission + demo video |
-
-## Prize tracks to hit
-
-- **Best Use of DCP** — `compute.for()` for both rollout and verifier jobs, Compute Groups, real DCC flow
-- **MLH Best Use of Gemma 4** — Gemma running in browser via WebGPU for inference
-- **MLH Best Use of Auth0** — both Distributor and Client account types, custom claims
-- **Best UI/UX** — clean dashboards, live ticks, comparison panel
+| **Best Use of DCP** ($660 CAD) | Two `compute.for()` calls (rollout + verifier), private Compute Group, real DCC flow, browser worker via embed |
+| **MLH Best Use of Gemma 4** (Google swag) | Gemma 4 used twice — translator (Phase 3) + workload (Phase 4+5), browser-side via WebGPU |
+| **MLH Best Use of Auth0** (headphones) | Real Universal Login for Distributor + Client, custom `account_type` claim, Login Action |
+| **Best UI/UX** ($700 CAD) | Two polished dashboards, live SSE streaming, footer chip, accuracy comparison panel |
+| **Best Demo Video** ($100 GC) | 90-second video per [07-demo-script.md](07-demo-script.md) |
+| **Most Fun** ($400 CAD) | Live tile-fill of slice results is engaging |
