@@ -10,7 +10,7 @@ const HARDCODE_LINES = [
   "she said it like it was the most obvious thing in the world.",
   "by the time we got back, the sky had turned coral.",
   "no one expected it would take that long to seal.",
-  "the recording cuts in here — bear with me.",
+  "the recording cuts in here, bear with me.",
   "what surprised me most was how quiet everything got.",
 ];
 
@@ -39,7 +39,8 @@ export async function dispatchForecast({
 
   if (mode === "live") {
     void runLive(forecastId).catch((err) => {
-      console.error(`[strata:dispatch] live run failed for ${forecastId}:`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[strata:dispatch] live run failed forecast=${forecastId.slice(-6)} reason="${message}"`);
       void recordFailure(forecastId, err);
     });
     return;
@@ -48,22 +49,24 @@ export async function dispatchForecast({
   if (mode === "cached") {
     const name = fixtureName ?? process.env.DCP_CACHED_FIXTURE ?? "slopify-demo";
     void runCachedReplay(forecastId, name).catch((err) => {
-      console.error(`[strata:dispatch] cached replay failed for ${forecastId}:`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[strata:dispatch] cached replay failed forecast=${forecastId.slice(-6)} reason="${message}"`);
       void recordFailure(forecastId, err);
     });
     return;
   }
 
   void runHardcodeReplay(forecastId, distributorIds).catch((err) => {
-    console.error("[strata:dispatch] hardcode replay error", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[strata:dispatch] hardcode replay error reason="${message}"`);
   });
 }
 
 async function runLive(forecastId: string) {
-  const log = (...args: unknown[]) =>
-    console.log(`[strata:live ${forecastId.slice(-6)}]`, ...args);
+  const tag = forecastId.slice(-4);
+  const log = (verb: string, fields = "") =>
+    console.log(`[strata ${tag}] ${verb.padEnd(10)} ${fields}`);
 
-  log("start");
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
     include: { slices: { orderBy: [{ chunkIndex: "asc" }] } },
@@ -79,25 +82,26 @@ async function runLive(forecastId: string) {
       "No audio path on forecast.inputManifestUrl and DCP_LIVE_AUDIO_PATH not set",
     );
   }
-  log("audio path", audioPath);
+
+  const fileName = audioPath.split("/").pop() ?? "audio";
+  log("received", `file=${fileName} forecast=${forecastId}`);
 
   const path = await import("node:path");
   const libPath = path.resolve(process.cwd(), "..", "dcp", "lib.mjs");
-  log("loading lib.mjs from", libPath);
+  log("dispatch", `loading lib.mjs from ${libPath}`);
   const lib = await import(/* webpackIgnore: true */ `file://${libPath}`);
-  log("lib loaded");
 
   await prisma.forecast.update({
     where: { id: forecastId },
     data: { status: "active", frontOpenedAt: new Date() },
   });
 
-  log("decoding audio");
+  log("decoding", "ffmpeg → 16kHz mono float32");
   const samples = await lib.decodeAudio(audioPath);
-  log("decoded", samples.length, "samples", `(${(samples.length / 16000).toFixed(1)}s)`);
+  log("decoded", `${(samples.length / 16000).toFixed(1)}s audio (${samples.length} samples)`);
   const chunks = lib.chunkAudio(samples);
   const total = chunks.length;
-  log("chunked into", total, "windows");
+  log("chunked", `${total} windows × 30s`);
 
   await prisma.slice.deleteMany({ where: { forecastId } });
   const newSlices = await Promise.all(
@@ -125,27 +129,24 @@ async function runLive(forecastId: string) {
     total,
     ts: Date.now(),
   });
-  log("front opening, dispatching to dcp");
+  const bidPrice = Number(process.env.DCP_BID_PRICE ?? 1);
+  log("dispatch", `submitted to scheduler, bid=$${bidPrice.toFixed(2)}, modules=3`);
+  log("cold-start", "~20-30s expected for first slice (3 ONNX modules, ~70MB)");
 
-  const result = (await lib.transcribeChunks(chunks, {
-    bidPrice: Number(process.env.DCP_BID_PRICE ?? 1),
-    returnTimings: true,
-    onProgress: (done: number, t: number) => log(`progress ${done}/${t}`),
-  })) as {
-    texts: string[];
-    dispatchedAt: number;
-    events: Array<{
-      idx: number;
-      stamps: { workerStart: number; workerEnd: number } & Record<string, number>;
-    }>;
-  };
-  log("dcp returned", result.texts.length, "texts");
-
-  for (const event of result.events) {
-    const idx = event.idx as number;
+  const writeLock = new Set<number>();
+  let abandoned = false;
+  const handleResult = async (event: {
+    idx: number;
+    text: string;
+    stamps: { workerStart: number; workerEnd: number } & Record<string, number>;
+  }) => {
+    if (abandoned) return;
+    const idx = event.idx;
+    if (writeLock.has(idx)) return;
+    writeLock.add(idx);
     const slice = sliceByIdx.get(idx);
-    if (!slice) continue;
-    const text = result.texts[idx] ?? "";
+    if (!slice) return;
+    const text = event.text;
     const region = REGIONS[idx % REGIONS.length];
     const cyclesConsumed = Math.max(
       8,
@@ -165,7 +166,6 @@ async function runLive(forecastId: string) {
         completedAt: new Date(),
       },
     });
-
     await prisma.attestation.create({
       data: {
         sliceId: slice.id,
@@ -175,7 +175,6 @@ async function runLive(forecastId: string) {
         schedulerSig: "live-dcp-valid",
       },
     });
-
     await prisma.forecast.update({
       where: { id: forecastId },
       data: { budgetCyclesUsed: { increment: cyclesConsumed } },
@@ -193,8 +192,53 @@ async function runLive(forecastId: string) {
       text,
       ts: Date.now(),
     });
-    log(`slice ${slice.chunkIndex} done [${region}] "${text.slice(0, 60)}${text.length > 60 ? "..." : ""}"`);
+    const workerMs = event.stamps.workerEnd - event.stamps.workerStart;
+    const sliceLabel = `${String(slice.chunkIndex).padStart(2, " ")}`;
+    const preview = text.slice(0, 60).replace(/\s+/g, " ");
+    const tail = text.length > 60 ? "..." : "";
+    log(
+      "slice",
+      `${sliceLabel}  <- ${region.padEnd(7)} ${String(workerMs).padStart(5)}ms  cycles=${cyclesConsumed}  "${preview}${tail}"`,
+    );
+  };
+
+  const transcribeTimeoutMs = Number(process.env.DCP_TRANSCRIBE_TIMEOUT_MS ?? 180000);
+  const transcribePromise = lib.transcribeChunks(chunks, {
+    bidPrice,
+    returnTimings: true,
+    onProgress: (done: number, t: number) => log("progress", `${done}/${t}`),
+    onResult: handleResult,
+  });
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(
+        new Error(
+          `transcribeChunks exceeded ${transcribeTimeoutMs}ms; DCP did not return all slices`,
+        ),
+      );
+    }, transcribeTimeoutMs);
+  });
+  let result: {
+    texts: string[];
+    dispatchedAt: number;
+    events: Array<{
+      idx: number;
+      stamps: { workerStart: number; workerEnd: number } & Record<string, number>;
+    }>;
+  };
+  try {
+    result = (await Promise.race([transcribePromise, timeoutPromise])) as typeof result;
+  } catch (error) {
+    abandoned = true;
+    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+    const message = error instanceof Error ? error.message : String(error);
+    log("failed", message);
+    await recordFailure(forecastId, error);
+    return;
   }
+  if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+  log("returned", `${result.texts.length} transcripts from scheduler`);
 
   const audioHoursSealed = Number((samples.length / 16000 / 3600).toFixed(3));
   await prisma.forecast.update({
@@ -225,10 +269,23 @@ async function runLive(forecastId: string) {
     audioHoursSealed,
     ts: Date.now(),
   });
-  log("catchment sealed,", audioHoursSealed, "hours");
+  const totalCycles = result.events.reduce(
+    (sum, event) =>
+      sum +
+      Math.max(8, Math.round((event.stamps.workerEnd - event.stamps.workerStart) / 1800)),
+    0,
+  );
+  log("sealing", `${total}/${total} slices, ${(audioHoursSealed * 60).toFixed(1)}min audio, ${totalCycles} cycles`);
 
   await createSettlement(forecastId, forecast.budgetCents);
-  log("settlement created");
+  const grossCents = forecast.budgetCents;
+  const distributorCents = Math.round(grossCents * 0.8);
+  const strataCents = grossCents - distributorCents;
+  log(
+    "settled",
+    `$${(grossCents / 100).toFixed(4)} gross → $${(distributorCents / 100).toFixed(4)} distributor + $${(strataCents / 100).toFixed(4)} strata`,
+  );
+  log("sealed", `bundle=catchments/${forecastId}.zip`);
 }
 
 async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) {
