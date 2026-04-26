@@ -1,11 +1,52 @@
 import { type NextRequest } from "next/server";
 import { createReadStream, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { Readable } from "node:stream";
+import type { Readable } from "node:stream";
 import { prisma } from "@/lib/db/prisma";
 import { getSession } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
+
+function nodeToWebStream(nodeStream: Readable): ReadableStream<Uint8Array> {
+  let closed = false;
+  const safeClose = (controller: ReadableStreamDefaultController<Uint8Array>) => {
+    if (closed) return;
+    closed = true;
+    try {
+      controller.close();
+    } catch {
+      return;
+    }
+  };
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      nodeStream.on("data", (chunk: Buffer) => {
+        if (closed) return;
+        try {
+          controller.enqueue(new Uint8Array(chunk));
+        } catch {
+          closed = true;
+          nodeStream.destroy();
+        }
+      });
+      nodeStream.once("end", () => safeClose(controller));
+      nodeStream.once("close", () => safeClose(controller));
+      nodeStream.once("error", (error: Error) => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.error(error);
+        } catch {
+          return;
+        }
+      });
+    },
+    cancel() {
+      closed = true;
+      nodeStream.destroy();
+    },
+  });
+}
 
 const mimeByExt: Record<string, string> = {
   mp4: "video/mp4",
@@ -84,7 +125,7 @@ export async function GET(
       });
     }
     const stream = createReadStream(filePath, { start, end });
-    const webStream = Readable.toWeb(stream) as ReadableStream;
+    const webStream = nodeToWebStream(stream);
     return new Response(webStream, {
       status: 206,
       headers: {
@@ -98,7 +139,7 @@ export async function GET(
   }
 
   const stream = createReadStream(filePath);
-  const webStream = Readable.toWeb(stream) as ReadableStream;
+  const webStream = nodeToWebStream(stream);
   return new Response(webStream, {
     status: 200,
     headers: {
