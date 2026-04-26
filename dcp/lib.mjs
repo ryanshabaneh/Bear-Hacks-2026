@@ -239,14 +239,34 @@ export async function transcribeChunks(chunks, opts = {}) {
   let done = 0;
   const dispatchedAt = Date.now();
   const events = [];
+  const onResult = opts.onResult;
+  const pendingCallbacks = [];
   job.on('result', (ev) => {
     done++;
     const r = ev.result;
     events.push({ idx: r.idx, receivedAt: Date.now(), stamps: r.stamps, cold: r.cold, gpuProbe: r.gpuProbe });
     if (onProgress) onProgress(done, chunks.length);
+    if (onResult) {
+      try {
+        const text = _tokenizer.decode(r.tokens, { skip_special_tokens: true }).trim();
+        const p = Promise.resolve(
+          onResult({
+            idx: r.idx,
+            text,
+            stamps: r.stamps,
+            cold: r.cold,
+            receivedAt: Date.now(),
+          }),
+        ).catch((err) => console.error('[lib.mjs] onResult callback threw:', err));
+        pendingCallbacks.push(p);
+      } catch (err) {
+        console.error('[lib.mjs] onResult decode failed:', err);
+      }
+    }
   });
 
   const results = await job.exec(bidPrice);
+  if (pendingCallbacks.length > 0) await Promise.all(pendingCallbacks);
   const arr = Array.from(results);
   arr.sort((a, b) => a.idx - b.idx);
   const texts = arr.map((r) => _tokenizer.decode(r.tokens, { skip_special_tokens: true }).trim());
