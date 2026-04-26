@@ -4,14 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { getDistributorStats } from "@/lib/payments/balance";
 import { DistributorOnboardingModal } from "@/components/onboarding/DistributorOnboardingModal";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
-import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
-import { MonoNumber } from "@/components/cirrus/primitives/MonoNumber";
-import { SliceTicker } from "@/components/cirrus/signature/SliceTicker";
-import { CycleBudgetMeter } from "@/components/cirrus/signature/CycleBudgetMeter";
-import { CapabilityBloom } from "@/components/cirrus/signature/CapabilityBloom";
-import { CatchmentAssembling } from "@/components/cirrus/signature/CatchmentAssembling";
-import { FrontOpening } from "@/components/cirrus/signature/FrontOpening";
-import { AttestationReceipt } from "@/components/cirrus/signature/AttestationReceipt";
+import { Window } from "@/components/ui/Window";
+import { TrustNetworkPanel } from "@/components/distributor/TrustNetworkPanel";
 
 export default async function DistributorDashboard() {
   const session = await getSession();
@@ -20,132 +14,89 @@ export default async function DistributorDashboard() {
     redirect("/client");
   }
 
-  const [distributor, stats, recentAttestations] = await Promise.all([
+  const [distributor, stats] = await Promise.all([
     prisma.distributor.findUnique({
       where: { id: session.user.distributorId },
     }),
     getDistributorStats(session.user.distributorId),
-    prisma.attestation.findMany({
-      take: 3,
-      orderBy: { id: "desc" },
-      include: { slice: true },
-    }),
   ]);
 
   const displayName = distributor?.displayName ?? "Distributor";
   const showOnboarding = !distributor?.onboardedAt;
   const isSlopify = displayName.toLowerCase() === "slopify";
   const networkLabel = isSlopify ? "Slopify-PCN" : "Public Sky";
-  const todayUsd = (stats.earningsMonthCents / 100).toFixed(2);
-  const skyDensity = Math.min(99, 60 + (stats.forecastsContributed % 40));
+  const monthUsd = (stats.earningsMonthCents / 100).toFixed(2);
 
   return (
     <AppShell role="distributor" email={session.user.email}>
-      <div className="flex flex-col gap-6 pt-2">
-        <SliceTicker liveDemoFallback className="self-start" />
+      <div className="flex flex-col gap-7 pt-6">
+        <header className="flex flex-col gap-2">
+          <span className="cirrus-text-unit">Distributor sky · {displayName}</span>
+          <h1 className="cirrus-text-h1">compute lent.</h1>
+          <p className="cirrus-text-body" style={{ opacity: 0.8, maxWidth: 540 }}>
+            you lend idle browser-tab compute. strata routes transcription work to
+            it, settles 80/20 on every sealed forecast.
+          </p>
+        </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="cirrus-card p-4 flex flex-col gap-2">
-            <UnitLabel>Audio-hours served · MO</UnitLabel>
-            <MonoNumber className="cirrus-text-display">
+          <div className="y2k-tile y2k-tile-cream flex flex-col gap-2">
+            <span className="cirrus-text-unit">Audio-hours</span>
+            <span className="cirrus-num" style={{ fontSize: 30, fontWeight: 700 }}>
               {stats.audioHoursMonth.toFixed(1)}
-            </MonoNumber>
+            </span>
+            <span className="y2k-mono" style={{ fontSize: 11, opacity: 0.7 }}>
+              audio your nodes transcribed this month
+            </span>
           </div>
-          <div className="cirrus-card p-4 flex flex-col gap-2">
-            <UnitLabel>Sky density · 1HR rolling</UnitLabel>
-            <MonoNumber
-              className="cirrus-text-display"
-              style={{ color: "var(--color-coral-500)" }}
-            >
-              {skyDensity}%
-            </MonoNumber>
+          <div className="y2k-tile y2k-tile-pink flex flex-col gap-2">
+            <span className="cirrus-text-unit">Forecasts contributed</span>
+            <span className="cirrus-num" style={{ fontSize: 30, fontWeight: 700 }}>
+              {stats.forecastsContributed}
+            </span>
+            <span className="y2k-mono" style={{ fontSize: 11, opacity: 0.7 }}>
+              jobs your compute helped seal this month
+            </span>
           </div>
-          <div className="cirrus-card p-4 flex flex-col gap-2">
-            <UnitLabel>Earnings · MO · USD</UnitLabel>
-            <MonoNumber className="cirrus-text-display">${todayUsd}</MonoNumber>
+          <div className="y2k-tile flex flex-col gap-2">
+            <span className="cirrus-text-unit">Earnings (USD)</span>
+            <span className="cirrus-num" style={{ fontSize: 30, fontWeight: 700 }}>
+              ${monthUsd}
+            </span>
+            <span className="y2k-mono" style={{ fontSize: 11, opacity: 0.7 }}>
+              your 80% share, this month
+            </span>
           </div>
         </section>
 
-        <section className="cirrus-card p-4 flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <UnitLabel>Compute network</UnitLabel>
-            <MonoNumber className="cirrus-text-h2">{networkLabel}</MonoNumber>
+        <Window title="network.exe" titleBarTone="lavender" sparkles={false}>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="cirrus-text-unit">Compute network</span>
+                <span className="cirrus-num" style={{ fontSize: 18, fontWeight: 700 }}>
+                  {networkLabel}
+                </span>
+              </div>
+              <span
+                className={
+                  isSlopify ? "cirrus-pill cirrus-pill-coral" : "cirrus-pill cirrus-pill-neutral"
+                }
+              >
+                {isSlopify ? "Private group · v1 attribution" : "Public network"}
+              </span>
+            </div>
+            <span className="y2k-mono" style={{ fontSize: 11, opacity: 0.7 }}>
+              {isSlopify
+                ? "your nodes only see jobs from inside the slopify group. routing weights honour the group's compute-tier policy."
+                : "your nodes accept any public strata job that meets the bid price. open marketplace."}
+            </span>
           </div>
-          <span
-            className={
-              isSlopify ? "cirrus-pill cirrus-pill-coral" : "cirrus-pill cirrus-pill-neutral"
-            }
-          >
-            {isSlopify ? "Private compute group · v1 attribution" : "Public network"}
-          </span>
-        </section>
+        </Window>
 
-        <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4">
-          <FrontOpening
-            forecastId="j3f"
-            title={`${displayName} · live transcription`}
-            status="active"
-            cyclesDispatching={120}
-            nodes={47}
-            etaMinMin={4}
-            etaMaxMin={7}
-          />
-          <CycleBudgetMeter
-            remaining={812}
-            total={1000}
-            costPerKc={0.029}
-            forecastId="j3f"
-          />
-        </section>
-
-        <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4">
-          <CatchmentAssembling
-            forecastId="j3f"
-            slicesTotal={60}
-            slicesCompleted={[
-              { chunkIndex: 0, timestampStart: 0, timestampEnd: 30, arrivedAt: 0 },
-              { chunkIndex: 1, timestampStart: 30, timestampEnd: 60, arrivedAt: 0 },
-              { chunkIndex: 2, timestampStart: 60, timestampEnd: 90, arrivedAt: 0 },
-              { chunkIndex: 3, timestampStart: 90, timestampEnd: 120, arrivedAt: 0 },
-            ]}
-            latestLine={{
-              timestamp: "00:01:30",
-              text: "and that's where we picked up the trail of–",
-            }}
-          />
-          <CapabilityBloom
-            totalNodes={47}
-            capabilities={{
-              WASM_SIMD: 47,
-              AUDIO_PCM: 47,
-              ENGLISH_OK: 47,
-              ONNX_INT8: 47,
-              KV_CACHE: 47,
-              F32: 47,
-            }}
-          />
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <UnitLabel>Recent attestations</UnitLabel>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {recentAttestations.map((a) => (
-              <AttestationReceipt
-                key={a.id}
-                attestation={{
-                  sliceTimestampStart: a.slice.timestampStart,
-                  sliceTimestampEnd: a.slice.timestampEnd,
-                  outputHash: a.outputHash.slice(0, 12),
-                  nodeRegion: a.nodeRegionGlyph,
-                  cyclesConsumed: a.slice.cyclesConsumed ?? 0,
-                  quorum: { k: 2, agreed: true },
-                  oracleSampled: false,
-                  schedulerSig: "valid",
-                }}
-              />
-            ))}
-          </div>
-        </section>
+        <Window title="trust.exe" titleBarTone="pink" sparkles={false}>
+          <TrustNetworkPanel />
+        </Window>
       </div>
       {showOnboarding ? <DistributorOnboardingModal /> : null}
     </AppShell>

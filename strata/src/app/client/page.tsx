@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
-import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
-import { MonoNumber } from "@/components/cirrus/primitives/MonoNumber";
-import { Pill } from "@/components/cirrus/primitives/Pill";
-import { Button } from "@/components/ui/Button";
 import { ClientOnboardingModal } from "@/components/onboarding/ClientOnboardingModal";
+import { StudioFlow } from "@/components/client/StudioFlow";
 
 export default async function ClientDashboard() {
   const session = await getSession();
@@ -21,112 +17,108 @@ export default async function ClientDashboard() {
     prisma.forecast.findMany({
       where: { clientId: session.user.clientId },
       orderBy: { createdAt: "desc" },
-      take: 6,
-      include: { catchment: true },
+      take: 40,
+      include: {
+        _count: { select: { slices: true } },
+        slices: {
+          where: { status: "completed" },
+          select: { id: true },
+        },
+        catchment: { select: { bundleUrl: true, slicesCompleted: true } },
+      },
     }),
   ]);
 
   const showOnboarding = !client?.onboardedAt;
-  const balance = (client?.balanceCents ?? 500) / 100;
-  const totalSealed = forecasts.filter((f) => f.status === "sealed").length;
+  const balance = (client?.balanceCents ?? 0) / 100;
+  const totalSealed = forecasts.filter((forecast) => forecast.status === "sealed").length;
+  const totalInFlight = forecasts.filter((forecast) =>
+    ["queued", "active", "sealing"].includes(forecast.status),
+  ).length;
+
+  const initialItems = forecasts.map((forecast) => {
+    const fileName = forecast.inputManifestUrl.startsWith("file://")
+      ? forecast.inputManifestUrl.split("/").pop() ?? "audio"
+      : "audio";
+    return {
+      id: forecast.id,
+      status: forecast.status,
+      fileName,
+      audioHoursTotal: forecast.audioHoursTotal,
+      budgetCents: forecast.budgetCents,
+      budgetCyclesUsed: forecast.budgetCyclesUsed,
+      slicesTotal: forecast._count.slices,
+      slicesCompleted: forecast.slices.length,
+      bundleUrl: forecast.catchment?.bundleUrl ?? null,
+      createdAt: forecast.createdAt.toISOString(),
+      sealedAt: forecast.sealedAt?.toISOString() ?? null,
+    };
+  });
 
   return (
     <AppShell role="client" email={session.user.email}>
-      <div className="flex flex-col gap-8 pt-4">
+      <div className="flex flex-col gap-7 pt-6">
         <header className="flex flex-col gap-2">
-          <UnitLabel>Studio</UnitLabel>
-          <h1 className="cirrus-text-h1">Welcome back, {client?.displayName}.</h1>
-          <p className="cirrus-text-body-sm opacity-70">
-            Cast a Forecast and watch the Sky catch it.
+          <span className="cirrus-text-unit">Client studio · {client?.displayName ?? "guest"}</span>
+          <h1 className="cirrus-text-h1">
+            welcome back, {client?.displayName ?? "there"}.
+          </h1>
+          <p className="cirrus-text-body" style={{ opacity: 0.8, maxWidth: 540 }}>
+            i&apos;m strata. drop audio or video, i route it to browser-tab compute,
+            you get a clean transcript back. each job is called a forecast.
           </p>
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="cirrus-card p-5 flex flex-col gap-2">
-            <UnitLabel>Credit balance</UnitLabel>
-            <MonoNumber className="cirrus-text-display">
-              ${balance.toFixed(2)}
-            </MonoNumber>
-            <span className="cirrus-text-body-sm opacity-60">
-              starts with $5 in trial credit
-            </span>
-          </div>
-          <div className="cirrus-card p-5 flex flex-col gap-2">
-            <UnitLabel>Forecasts sealed</UnitLabel>
-            <MonoNumber className="cirrus-text-display">{totalSealed}</MonoNumber>
-            <span className="cirrus-text-body-sm opacity-60">
-              all-time on this account
-            </span>
-          </div>
-          <div className="cirrus-card p-5 flex flex-col gap-2 items-start">
-            <UnitLabel>Cast a new one</UnitLabel>
-            <p className="cirrus-text-body-sm opacity-70">
-              Drop an audio file, watch it transcribe live.
-            </p>
-            <Link href="/client/transcribe" className="mt-1">
-              <Button>Open transcribe →</Button>
-            </Link>
-          </div>
+          <StatTile
+            label="Credit balance"
+            value={`$${balance.toFixed(2)}`}
+            caption="auto-seeds +$50 on first cast"
+            tone="cream"
+          />
+          <StatTile
+            label="In flight"
+            value={String(totalInFlight)}
+            caption="forecasts currently being transcribed"
+            tone="pink"
+          />
+          <StatTile
+            label="Forecasts sealed"
+            value={String(totalSealed)}
+            caption="finished jobs on this account, all-time"
+            tone="default"
+          />
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <UnitLabel>Recent Forecasts</UnitLabel>
-            <span className="cirrus-text-mono-id opacity-60">
-              {forecasts.length} shown
-            </span>
-          </div>
-          {forecasts.length === 0 ? (
-            <div className="cirrus-card p-8 text-center flex flex-col gap-3 items-center">
-              <span className="cirrus-text-h2">No Forecasts yet.</span>
-              <span className="cirrus-text-body-sm opacity-60 max-w-[360px]">
-                Your first Forecast will appear here. Each one shows live
-                transcription progress, attestations, and the final Catchment.
-              </span>
-              <Link href="/client/transcribe" className="mt-2">
-                <Button>Cast your first Forecast →</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {forecasts.map((f) => (
-                <Link
-                  key={f.id}
-                  href={`/client/forecasts/${f.id}`}
-                  className="cirrus-card p-4 flex flex-col gap-2 hover:bg-[rgba(255,255,255,0.7)] transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <UnitLabel>Forecast · {f.id.slice(-4).toUpperCase()}</UnitLabel>
-                    <Pill
-                      tone={
-                        f.status === "sealed"
-                          ? "sage"
-                          : f.status === "active"
-                            ? "coral"
-                            : f.status === "failed"
-                              ? "neutral"
-                              : "butter"
-                      }
-                    >
-                      {f.status}
-                    </Pill>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <MonoNumber className="cirrus-text-h2">
-                      {(f.audioHoursTotal * 60).toFixed(1)}
-                    </MonoNumber>
-                    <span className="cirrus-text-body-sm opacity-60">min audio</span>
-                  </div>
-                  <span className="cirrus-text-body-sm opacity-60">
-                    Cycles used: {f.budgetCyclesUsed}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+        <StudioFlow initialForecasts={initialItems} />
       </div>
       {showOnboarding ? <ClientOnboardingModal /> : null}
     </AppShell>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  caption,
+  tone,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+  tone: "default" | "pink" | "cream";
+}) {
+  const toneClass =
+    tone === "pink" ? "y2k-tile-pink" : tone === "cream" ? "y2k-tile-cream" : "";
+  return (
+    <div className={`y2k-tile ${toneClass} flex flex-col gap-2`}>
+      <span className="cirrus-text-unit">{label}</span>
+      <span className="cirrus-num" style={{ fontSize: 32, fontWeight: 700 }}>
+        {value}
+      </span>
+      <span className="y2k-mono" style={{ fontSize: 11, opacity: 0.7 }}>
+        {caption}
+      </span>
+    </div>
   );
 }
