@@ -1,41 +1,41 @@
 # Risks & Mitigations
 
-Numbered roughly by likelihood × impact. Risk 1 is the one most likely to kill the demo.
+Numbered roughly by likelihood × impact. Risk 1 is the one most likely to kill the demo. Hackathon lens applied — every risk listed has a real demo-day surface or breaks the demo path. Production-hardening concerns are deferred (see [AUDIT-SCOPE.md](AUDIT-SCOPE.md)).
 
-## Risk 1 — Gemma can't load inside DCP sandbox
+## Risk 1 — Whisper-WebGPU can't load inside DCP sandbox
 
-**Risk:** The work function (stringified `Function.prototype.toString()`, eval'd inside a sandboxed Web Worker) can't dynamic-import `@huggingface/transformers` or can't access `navigator.gpu`. Result: every slice fails, no demo.
+**Risk:** The work function (stringified `Function.prototype.toString()`, eval'd inside a sandboxed Web Worker) can't load `@huggingface/transformers` v3 or can't access `navigator.gpu` / `OfflineAudioContext`. Result: every Slice fails, no demo.
 
 **Likelihood:** HIGH. Impact: critical.
 
-**Mitigation:** Resolve at T+2 with the spike in [01-preflight.md §5](01-preflight.md#5-gemma-in-sandbox-spike-be3--highest-risk-item). Three paths in priority order:
-- **A.** Dynamic import inside sandbox
-- **B.** Pre-load model in runtime iframe + postMessage from sandbox
-- **C.** Sandbox `fetch()` to localhost inference endpoint (a 30-line Express wrapper around transformers.js running on the demo laptop)
+**Mitigation:** BE3 spike at T+2. Three paths in priority order:
+- **A.** Strata-hosted version-pinned bundle (`https://cdn.strata.app/runtime/whisper-work-v1.js`) loaded inside the sandbox via DCP's allowed-fetch surface.
+- **B.** Content-addressed bundle (SHA in path) registered as a RemoteDataPattern entry, used if the `strata-2026` Compute Group enforces hash-pinned URLs.
+- **C.** Sandbox `fetch()` to a localhost transcription endpoint (a 30-line Express wrapping transformers.js running on the demo laptop). Real DCP scheduler, fake distribution.
 
 Path C always works. The "wow" survives because the DCP scheduler is still real, the model is still really running on a laptop GPU — only the location changes.
 
 ## Risk 2 — DCP scheduler unreachable (conference WiFi)
 
-**Risk:** Conference WiFi blocks `scheduler.distributed.computer` or rate-limits enough to break job submission.
+**Risk:** Conference WiFi blocks `scheduler.distributed.computer` or rate-limits enough to break Forecast submission.
 
 **Likelihood:** Medium. Impact: total demo failure.
 
 **Mitigation:**
 - **Primary:** phone hotspot for the presenter laptop. Tested before go-time.
-- **Secondary:** Submit worker has `DCP_MODE=fallback` that runs slices in-process synchronously with mock latency, posting results to the same Next.js callbacks. SSE still streams. UI still animates. Demo still tells the story; the "real DCP scheduler" claim weakens — pivot the talking point to "compute.for() syntax + result aggregation."
+- **Secondary:** pre-baked Catchment replay. The full Slice / Attestation / Catchment set for one canonical Forecast is captured during dry runs. If the live scheduler is down, Strata API replays Slice callbacks via SSE with realistic timing. Quorum, attestation, Catchment math, and settlement run real; only the DCP dispatch is replayed. UI labels the fallback explicitly. **Do NOT ship a hidden synchronous in-process mode that masks DCP errors.**
 - **Tertiary:** pre-recorded backup video on second laptop. Play while narrating live.
 
-## Risk 3 — Gemma cold start during demo (2-3 minutes)
+## Risk 3 — Whisper cold start during demo
 
-**Risk:** A demo Node browser hasn't pre-cached the model; first slice stalls 2-3 min on download; ENOPROGRESS kills slices.
+**Risk:** A demo Node browser hasn't pre-warmed the model; first Slice stalls 6-12s on download (Whisper-base ONNX ~150MB on WebGPU, ~80MB Whisper-tiny on WASM-SIMD); ENOPROGRESS kills slices.
 
 **Likelihood:** Medium. Impact: visible stall.
 
 **Mitigation:**
-- Pre-warm all 6 demo laptops ≥30 min before judging. Tabs stay open.
-- Work function calls `progress(0.05)`, `progress(0.1)`, `progress(0.5)` during model download stages so ENOPROGRESS doesn't fire.
-- Fallback: if a laptop goes cold, immediately switch to a pre-warmed one. Demo only needs 1-2 active Nodes to look convincing.
+- Open all 6 demo browser tabs ≥60s before judging starts. The V8 sandbox has no persistent cache, so each NEW tab is a cold start; existing tabs reuse the in-memory pipeline.
+- Work function calls `progress(0)` after fetch, `progress(0.3)` after model warm, `progress(0.5)` mid-inference, `progress(1)` before return — model download alone may exceed the 30s ENOPROGRESS watchdog on a cold browser.
+- Fallback: if a tab goes cold, switch to a pre-warmed one. Demo only needs 1-2 active Nodes to look convincing.
 
 ## Risk 4 — DCP keystore not funded
 
@@ -46,56 +46,56 @@ Path C always works. The "wow" survives because the DCP scheduler is still real,
 **Mitigation:**
 - Pre-fund keystore at T-1h with ≥5,000 DCC (see [01-preflight.md §1](01-preflight.md#1-dcp-keystore--funding-be3))
 - Re-check balance at T+34 (one hour before demo): `await acct.getBalance()`
-- If we somehow run out: flip to `DCP_MODE=fallback` (Risk 2 mitigation also covers this)
+- If we somehow run out: switch to the pre-baked Catchment fallback (Risk 2 mitigation). There is no synchronous in-process mode.
 
-## Risk 5 — Gemma 4 translator fails / rate-limited
+## Risk 5 — Gemma 4 translator fails (Forecast Composer stretch)
 
-**Risk:** HF inference for `google/gemma-2-9b-it` is slow, returns malformed JSON, or rate-limits during demo.
+**Risk:** Browser-WebGPU Gemma 4 1B cold-starts in front of judges, returns malformed JSON, or the WebGPU detection misfires. The "AI translates English" moment is the MLH Gemma 4 track hook.
 
-**Likelihood:** Medium. Impact: cosmetic but visible (the "AI translates English" moment is core to the pitch).
+**Likelihood:** Low (we control the browser). Impact: cosmetic but visible.
 
-**Mitigation:** [src/lib/translator.ts](../src/lib/translator.ts) short-circuits when the input matches the canonical demo phrase (`/AIME.*N\s*=\s*8/i`), returning a cached spec instantly. Live demo never depends on HF. The translator still works for off-script inputs but the demo path doesn't need it.
+**Mitigation:** `src/lib/forecast-translator.ts` short-circuits when input matches a canonical demo phrase, returning a cached Forecast spec instantly. Live demo never depends on a model round-trip. Pre-warm Gemma 4 by visiting `/client/forecasts/new` once during dry-run. The translator still works for off-script inputs but the demo path doesn't need it.
 
 ## Risk 6 — Auth0 callback misconfigured on Vercel
 
-**Risk:** Vercel preview URL not in Auth0 callback whitelist, login breaks.
+**Risk:** Vercel preview URL not in Auth0 callback whitelist (note: SDK v4 uses `/auth/callback`, NOT `/api/auth/callback`); login breaks.
 
 **Likelihood:** Medium. Impact: signup screenshots only, not demo path.
 
 **Mitigation:**
-- Lock to one Vercel production URL (`strata.dev` if domain ready, else a fixed `strata.vercel.app` alias). Configure Auth0 callbacks for that exact URL at T+0.
-- Test full Auth0 flow at T+22, T+30, T+34.
+- Lock to one Vercel production URL (`strata.app` if domain ready, else a fixed `strata.vercel.app` alias). Configure Auth0 callbacks for that exact URL at T+0.
+- Test full Auth0 v4 flow at T+22, T+30, T+34.
 - If broken at demo time: flip `AUTH_MODE=stub` on Vercel, redeploy (~30s). Pre-staged demo accounts work in both modes — `getSession()` returns the same shape per [06-auth0.md](06-auth0.md).
 
 ## Risk 7 — SSE connection drops / Vercel 5-min timeout
 
-**Risk:** Long jobs exceed Vercel's serverless function timeout (~5 min for SSE), connection drops, results stop streaming.
+**Risk:** Long Forecasts exceed Vercel's serverless function timeout (~5 min for SSE), connection drops, results stop streaming.
 
-**Likelihood:** Medium for full 480-slice runs. Impact: cosmetic — results in DB are fine, UI just stops updating.
+**Likelihood:** Low for the demo fixture (30-60 min audio = ~3-5 min wall-clock at k=2 with 6 Nodes). Impact: cosmetic — Slices in DB are fine, UI just stops updating.
 
 **Mitigation:**
-- EventSource auto-reconnects on close; reducer applies missed events from the catch-up snapshot endpoint `/api/jobs/[id]` on reconnect.
-- For demo: the rollout phase finishes in ~3 min on 6 Nodes, well under the 5 min limit. Verifier phase starts a fresh stream.
-- Long-term option: run Next.js on Vultr alongside the submit worker (no Vercel timeout). Don't do this during hackathon unless 5-min limit actually breaks something.
+- EventSource auto-reconnects on close; the Forecast Detail page hits `/api/forecasts/[id]` for a catch-up snapshot on remount, so the reducer resyncs.
+- For demo: pin the audio fixture so the Catchment seals in under 5 minutes. Risk surfaces only if a judge insists on a longer fixture.
 
 ## Risk 8 — Cross-origin iframe / CSP issues on Distributor's site
 
-**Risk:** Real Distributor sites have CSP that blocks `https://embed.strata.dev/runtime.html` or `https://scheduler.distributed.computer/dcp-client/dcp-client.js`.
+**Risk:** Real Distributor sites have CSP that blocks `https://embed.strata.app/runtime.html` or `https://scheduler.distributed.computer/dcp-client/dcp-client.js`.
 
 **Likelihood:** N/A for hackathon (we control the demo-site). Medium for production.
 
 **Mitigation:** demo-site has permissive CSP (we own it). Production: documented CSP requirements for Distributors in onboarding.
 
-## Risk 9 — Verifier phase runs too slowly with only 6 Nodes
+## Risk 9 — Forecast runs too slow with only 6 Nodes
 
-**Risk:** 240 verifier slices on 6 Nodes ≈ 40 slices each at 15s each = 10 min. Demo runs over time.
+**Risk:** A 60-minute audio fixture = 120 chunks × k=2 redundancy = 240 cycles. On 6 Nodes at ~10s per Whisper-base cycle (warm), that's ~7 minutes wall-clock. Demo runs over.
 
-**Likelihood:** Medium. Impact: demo cuts off before the money shot.
+**Likelihood:** Medium. Impact: demo cuts off before the Catchment seals.
 
 **Mitigation:**
-- Reduce N=8 → N=4 → 120 rollouts + ~60 verifiers ≈ 4 min total
-- OR: pre-compute the rollout + verifier results, replay through the same SSE channels with mock latency. The DCP integration and aggregation logic are still real — only the inference is pre-staged.
-- During run, watch the timer; if at T+3min the rollout phase isn't done, narrate "let's check the Distributor dashboard" to buy 30s.
+- Pin the demo fixture at the lower bound of the locked range (~30 min audio = 60 chunks × k=2 = 120 cycles ≈ 3-4 min wall-clock).
+- Pre-warm all demo tabs so first-Slice latency drops from 12s to ~2s.
+- During run, watch the timer; if at T+2:30 the Catchment is <60% sealed, narrate "let's check the Distributor dashboard" to buy 30s, then return.
+- Pre-baked Catchment as fallback if the live run blows past 4 minutes.
 
 ## Risk 10 — DCP work function can't access Compute Group secret
 
@@ -109,26 +109,28 @@ Path C always works. The "wow" survives because the DCP scheduler is still real,
 
 ## Hackathon-safe baseline
 
-If everything goes wrong, this version still demos well:
+If everything goes wrong, this version still demos well — and crucially, no fallback masks DCP errors with a hidden synchronous mode:
 
-1. Submit worker runs in `DCP_MODE=fallback` (in-process, no scheduler dependency)
-2. SSE streams results to frontend in real-time
-3. Distributor dashboard ticks up via the same SSE infrastructure (real DB Settlement rows, just credited from in-process slices)
-4. `AUTH_MODE=stub` skips Auth0 entirely
-5. embed.js still loads on demo-site, footer chip visible
-6. Gemma still runs in [tessera-test/index.html](../tessera-test/index.html) for the "real Gemma in browser" moment via DevTools
+1. **DCP submit worker is always real.** No `DCP_MODE=fallback` in-process shortcut.
+2. If the live scheduler is unreachable: pre-baked canonical Forecast replay via SSE. Slice rows, Attestation rows, Catchment math all real; only `compute.for()` dispatch is replayed.
+3. SSE streams Slice events to the Client dashboard.
+4. Distributor dashboard ticks Catchment + Rain animation from real DB rows.
+5. `AUTH_MODE=stub` skips Auth0 if its callback URL is broken. Pre-staged accounts work in both modes.
+6. Embed still loads on the demo Distributor site from `embed.strata.app`; footer chip + tier badge visible.
+7. One demo laptop has the full Whisper runtime warmed; we can decode a Slice live in DevTools as proof the WebGPU path works even if the live Forecast can't dispatch.
 
-This hits: **DCP integration** (real `compute.for()` syntax + result aggregation, even if execution is in-process), **Auth0** (real if it works, stub if not), **Gemma 4** (real model in browser, shown via DevTools), **UI/UX** (polished dashboards, live SSE). Three of four prize tracks survive a worst-case demo.
+This hits: **DCP integration** (real `compute.for()` syntax + result aggregation, even if execution is replayed), **Auth0** (real if it works, stub if not), **Whisper-WebGPU** (real model in browser, demonstrable via DevTools network tab), **UI/UX** (polished dashboards, live SSE, atmospheric components). The MLH Gemma 4 track survives only if the Forecast Composer translator is wired and pre-warmed.
 
 ## Risk dashboard (check at T+10, T+22, T+30, T+34)
 
 | Item | Owner | T+10 | T+22 | T+30 | T+34 |
 |---|---|---|---|---|---|
 | DCP balance > 100 DCC | BE3 | | | | |
-| Gemma sandbox path confirmed | BE3 | | | | |
-| Auth0 callback URLs match Vercel preview | BE2 | | | | |
-| 6 demo laptops with model warm | ALL | n/a | n/a | | |
+| Whisper-WebGPU sandbox path confirmed | BE3 | | | | |
+| Auth0 callback URLs match Vercel preview (v4 `/auth/callback`) | BE2 | | | | |
+| 6 demo browser tabs warm + Whisper cached | ALL | n/a | n/a | | |
 | `AUTH_MODE=auth0` round-trip works | BE2 | n/a | | | |
 | Full demo path runs end-to-end | ALL | n/a | | | |
-| Backup video recorded | FE | n/a | | | |
+| Pre-baked Catchment + backup video recorded | FE | n/a | | | |
 | Phone hotspot tested | ALL | n/a | n/a | | |
+| Audio fixture pinned (30-60 min) + ground-truth SRT loaded | FE | n/a | | | |

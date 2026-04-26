@@ -7,10 +7,10 @@ Routes are defined in [02-skeleton.md](02-skeleton.md#routes-app-router). This d
 ## Landing page (`/`)
 
 Hero with two CTAs side-by-side:
-- "Earn from your site" → `/signup?role=distributor`
-- "Run AI workloads cheap" → `/signup?role=client`
+- "Earn from your site" → `/auth/login?screen_hint=signup&account_type=distributor&returnTo=/distributor`
+- "Transcribe at four cents an hour" → `/auth/login?screen_hint=signup&account_type=client&returnTo=/client`
 
-Below the fold: comparison panel ("AWS vs Strata: $1200 → $87 for 240 inferences"), how it works (3 steps), prize-track shoutouts (small).
+Below the fold: pricing comparison panel (Strata $0.04/audio-hour vs Rev human $90, Rev AI $1.20, OpenAI Whisper API $0.36, AssemblyAI batch $0.12), how-it-works in 3 steps (Forecast → Front → Catchment), prize-track shoutouts (small).
 
 Server-rendered, no auth needed.
 
@@ -19,44 +19,45 @@ Server-rendered, no auth needed.
 Reads `?role=` from URL or shows the picker:
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  Join Strata as...                                   │
-│                                                      │
-│  ┌────────────────────┐  ┌────────────────────────┐  │
-│  │  Distributor       │  │  Client                │  │
-│  │  Earn revenue from │  │  Run AI workloads at   │  │
-│  │  your site's idle  │  │  1/10th the AWS cost   │  │
-│  │  compute           │  │                        │  │
-│  └────────────────────┘  └────────────────────────┘  │
-└──────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  Join Strata as...                                                 │
+│                                                                    │
+│  ┌───────────────────────┐  ┌───────────────────────────────────┐  │
+│  │  Distributor          │  │  Client                           │  │
+│  │  Host the Sky on      │  │  Transcribe audio at $0.04 per    │  │
+│  │  your site. Earn      │  │  hour. Cheaper than Whisper API,  │  │
+│  │  AdSense-shape RPM.   │  │  no GPU box to manage.            │  │
+│  └───────────────────────┘  └───────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-When `AUTH_MODE=stub`: clicking either card POSTs to `/api/auth/stub` with `{ role, email: 'demo+role@strata.dev' }`, then redirects to `/distributor` or `/client`.
+When `AUTH_MODE=stub`: clicking either card POSTs to `/api/auth/stub` with `{ role, email: 'demo+role@strata.app' }`, then redirects to `/distributor` or `/client`.
 
-When `AUTH_MODE=auth0`: redirects to Auth0 Universal Login with `screen_hint=signup&account_type=<role>`. See [06-auth0.md](06-auth0.md).
+When `AUTH_MODE=auth0`: signup buttons are plain `<a>` tags pointing at `/auth/login?screen_hint=signup&account_type=<role>&returnTo=<dashboard>`. The SDK v4 forwards the query to Auth0; the post-login Action sets `app_metadata.account_type`. See [06-auth0.md](06-auth0.md).
 
 ## Distributor dashboard (`/distributor`)
 
-Server Component fetches sites, slots, settlements (last 7 days) from Prisma. Client Component subscribes to `/api/distributors/[id]/stream` for live earnings ticks.
+Server Component fetches sites, slots, settlements (last 7 days) from Prisma. Client Component subscribes to `/api/distributors/[id]/stream` for live SliceTicker.
 
 ### Layout
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  ML Blog — earnings              [Withdraw to Stripe]       │
+│  myblog.com — earnings                  [Withdraw]          │
 │                                                              │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐    │
-│  │ Today        │ │ This week    │ │ Active workers   │    │
-│  │ $14.27       │ │ $89.40       │ │ 6                │    │
-│  └──────────────┘ └──────────────┘ └──────────────────┘    │
+│  ┌────────────────┐ ┌────────────────┐ ┌─────────────────┐ │
+│  │ AUDIO-HOURS    │ │ THIS WEEK      │ │ SKY DENSITY     │ │
+│  │ SERVED (24H)   │ │ $89.40         │ │ 6 active Nodes  │ │
+│  │ 142            │ │                │ │                 │ │
+│  └────────────────┘ └────────────────┘ └─────────────────┘ │
 │                                                              │
-│  ─── Live earnings ─────────────────────────────────────    │
-│  ↑ Slice +$0.12   2s ago                                    │
-│  ↑ Slice +$0.12   5s ago                                    │
-│  ↑ Slice +$0.09   8s ago                                    │
+│  ─── SliceTicker ─────────────────────────────────────      │
+│  ↑ Slice (NA-W) +$0.012   2s ago                            │
+│  ↑ Slice (EU)   +$0.012   5s ago                            │
+│  ↑ Slice (NA-E) +$0.009   8s ago                            │
 │                                                              │
 │  ─── Sites ─────────────────────────────────────────────    │
-│  myblog.com  ●Active  6 workers  [embed snippet ▾]          │
+│  myblog.com  ●Active  6 Nodes  [embed snippet ▾]            │
 │  + Add site                                                  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -67,7 +68,7 @@ Server Component fetches sites, slots, settlements (last 7 days) from Prisma. Cl
 ┌──────────────────────────────────────────────────────┐
 │  Embed snippet for "myblog.com — sidebar slot"      │
 │                                                      │
-│  <script src="https://embed.strata.dev/strata.js"   │
+│  <script src="https://embed.strata.app/strata.js"   │
 │    data-slot="slot_abc123" async></script>           │
 │                                                      │
 │  [Copy]                                              │
@@ -84,206 +85,197 @@ Server Component fetches sites, slots, settlements (last 7 days) from Prisma. Cl
    ```json
    { "verification_token": "tok_abc123" }
    ```
-4. "Verify" button POSTs `/api/sites/[id]/verify`. Backend fetches the well-known URL, checks token match, sets `verified=true`.
+4. "Verify" button POSTs `/api/sites/[id]/verify`. Backend fetches the well-known URL, checks token match, sets `verifiedAt`.
 5. After verification, "Create slot" button → `/api/slots` → returns embed snippet.
 
-### Live tick component (Client Component)
+### SliceTicker component (Client Component)
 
 ```tsx
 'use client';
-export function LiveTicks({ distributorId, initial }: Props) {
-  const [ticks, setTicks] = useState(initial);
+import { useEffect, useState } from 'react';
+
+type Tick = { id: string; amountCents: number; regionGlyph: string; at: number };
+
+export function SliceTicker({ distributorId, initial }: { distributorId: string; initial: Tick[] }) {
+  const [ticks, setTicks] = useState<Tick[]>(initial);
   useEffect(() => {
     const es = new EventSource(`/api/distributors/${distributorId}/stream`);
     es.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === 'earnings_tick') {
-        setTicks(prev => [{ id: crypto.randomUUID(), amountCents: msg.amountCents, at: Date.now() }, ...prev].slice(0, 20));
+        setTicks(prev => [
+          { id: crypto.randomUUID(), amountCents: msg.amountCents, regionGlyph: msg.regionGlyph ?? '?', at: Date.now() },
+          ...prev,
+        ].slice(0, 20));
       }
     };
     return () => es.close();
   }, [distributorId]);
-  return <ul>{ticks.map(t => <li key={t.id}>↑ Slice +${(t.amountCents/100).toFixed(2)} <Ago at={t.at}/></li>)}</ul>;
+  return (
+    <ul>
+      {ticks.map(t => (
+        <li key={t.id}>↑ Slice ({t.regionGlyph}) +${(t.amountCents/100).toFixed(3)} <Ago at={t.at}/></li>
+      ))}
+    </ul>
+  );
 }
 ```
 
 ## Client dashboard (`/client`)
 
-Server Component fetches recent jobs + balance. Job submission lives at `/client/jobs/new`.
+Server Component fetches recent Forecasts + balance + tier ceiling. Forecast Composer at `/client/forecasts/new`.
 
-### Job submission (`/client/jobs/new`)
+### Forecast Composer (`/client/forecasts/new`)
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Run an AI workload                                  │
+│  Release a Forecast                                  │
 │                                                      │
-│  Describe what you want to run...                    │
+│  Drop an audio file or paste a URL. We slice it     │
+│  into Rain and dispatch it on the next Front.       │
+│                                                      │
+│  [ Paste RSS ]  [ Paste YouTube ]  [ Upload ]       │
 │  ┌──────────────────────────────────────────────┐   │
-│  │ "Evaluate Gemma on AIME 2024 with N=8        │   │
-│  │  rollouts per problem"                       │   │
+│  │ https://feeds.example.com/podcast.xml         │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
-│  Or pick a template ▾                                │
-│   • Best-of-N reasoning eval                         │
-│   • Image batch (coming soon)                        │
-│   • Synthetic data (coming soon)                     │
+│  Language scope: ( ) English  ( ) Multi  ( ) Trans  │
+│  Output formats: [x] SRT [x] VTT [x] JSON [x] plain │
+│  Webhook URL (optional): _________________________  │
 │                                                      │
-│  [Translate →]                                       │
+│  Estimated: 0.5 audio-hours · ~$0.020 · ETA 2-4 min │
+│                                                      │
+│  [ Release Forecast → ]                              │
 └─────────────────────────────────────────────────────┘
 ```
 
-### After translate (confirmation)
+Estimate is computed from the input manifest at submit time (see Forecast.audioHoursTotal). Cost = audioHoursTotal × $0.04. ETA is shown as a band, not a fixed time, because it depends on Sky density at dispatch.
 
+### Forecast Detail (`/client/forecasts/[id]`)
+
+Three states driven by `forecast.status`:
+
+**Active (Front opening / Rain falling) — the demo hero:**
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Detected: 30 problems × 8 rollouts = 240 slices    │
-│  + ~240 verifier slices                              │
-│  Estimated cost: $87.40                              │
-│  Estimated time: ~4 minutes                          │
+│  Front opening. Sky is dispersing slices.            │
+│  ███████████░░░░░░░░░  72 / 120 cycles               │
 │                                                      │
-│  Job spec (edit if needed):                          │
-│  { "template": "tessera_eval", "model": ...,        │
-│    "n_rollouts": 8, "use_verifier": true,           │
-│    "input_set": [...30 AIME problems] }             │
+│  ─── CycleBudgetMeter ─── (barometric gauge)        │
+│  1012 mb remaining ($0.014 of $0.020)               │
 │                                                      │
-│  [Edit]           [Submit Job →]                     │
+│  ─── Catchment assembling ──────────────────────    │
+│  00:00:00 → 00:00:30  "Welcome to the show, today…" │
+│  00:00:30 → 00:01:00  "we're talking about distri-" │
+│  00:01:00 → 00:01:30  [pending]                     │
+│  00:01:30 → 00:02:00  "and that's why DCP works."   │
+│                                                      │
+│  ─── CapabilityBloom ──── (right rail)              │
+│  6 Nodes · 4 WebGPU · 2 WASM-SIMD                   │
+│                                                      │
+│  vs Rev AI ($0.60)   vs Whisper API ($0.18)         │
+│  Strata: $0.020                                      │
 └─────────────────────────────────────────────────────┘
 ```
 
-Translation: client-side call to Gemma 4 via HF inference (`google/gemma-2-9b-it`) with structured prompt. **Cache the demo-script translation** so live demo doesn't depend on HF latency. See [08-risks.md](08-risks.md) Risk 5.
+SRT segments populate in **timestamp order, not arrival order**. Counterfactual cost panel ticks live against Rev AI / Whisper API.
 
-### Job detail (`/client/jobs/[id]`)
-
-Three states driven by `job.status`:
-
-**Running:**
+**Sealed:**
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Job running  ████████████░░░░░░  147/240 slices    │
-│  Time: 2m 14s · Cost so far: $52.10                 │
+│  Catchment sealed in 3m 12s.                         │
+│  0.5 audio-hours · 60 chunks · $0.020               │
 │                                                      │
-│  Phase: rollouts                                     │
+│  vs Rev human:        $45     (-99.96%)             │
+│  vs Rev AI:           $0.60   (-96.7%)              │
+│  vs Whisper API:      $0.18   (-88.9%)              │
+│  vs AssemblyAI batch: $0.06   (-66.7%)              │
 │                                                      │
-│  Problem      │ Single-shot │ Best so far           │
-│  ─────────────────────────────────────────────────  │
-│  AIME-I-1     │ 401 ✗       │ 391 (3 votes)         │
-│  AIME-I-2     │ 025 ✓       │ 025 (8 votes)         │
-│  AIME-I-3     │ — wrong     │ 720 (5 votes)         │
-│  AIME-I-4     │ ...         │ pending               │
+│  [ Download Catchment (.zip) ]                       │
+│  Includes: SRT, VTT, JSON, plain, attestation log   │
 └─────────────────────────────────────────────────────┘
 ```
 
-Single-shot column reads from [fixtures/single-shot-baseline.json](../fixtures/single-shot-baseline.json) baked at preflight time (see [01-preflight.md](01-preflight.md)).
+The "vs Rev human -99.96%" line is the demo payoff. Animates large.
 
-**Done — the money shot:**
-```
-┌─────────────────────────────────────────────────────┐
-│  ✓ Job complete  240/240 slices                     │
-│  Total cost: $87.40  ·  Time: 4m 32s                │
-│                                                      │
-│  Single-shot accuracy:  23%   (7/30)                │
-│  Swarm accuracy:        58%   (17/30)               │
-│                              +35pp                  │
-│                                                      │
-│  [Download CSV]   [Run again with N=16]             │
-└─────────────────────────────────────────────────────┘
-```
-
-The "+35pp" number animates large and bold. This is the demo's payoff.
-
-### SSE hook
+### useForecastStream hook
 
 ```ts
-// src/lib/useJobStream.ts
+// src/lib/useForecastStream.ts
 'use client';
-export function useJobStream(jobId: string, initial: JobState) {
-  const [state, dispatch] = useReducer(jobReducer, initial);
+import { useEffect, useReducer } from 'react';
+
+export function useForecastStream(forecastId: string, initial: ForecastState) {
+  const [state, dispatch] = useReducer(forecastReducer, initial);
   useEffect(() => {
-    const es = new EventSource(`/api/jobs/${jobId}/stream`);
+    const es = new EventSource(`/api/forecasts/${forecastId}/stream`);
     es.onmessage = (e) => dispatch(JSON.parse(e.data));
-    es.onerror = () => { /* reconnect handled by EventSource auto-reconnect */ };
+    es.onerror = () => { /* EventSource auto-reconnects; reducer keeps last good state */ };
     return () => es.close();
-  }, [jobId]);
+  }, [forecastId]);
   return state;
 }
 ```
+SSE on Vercel has a 5-min cap. Demo Forecasts target ≤5 min, so the native EventSource retry is sufficient. Catch-up snapshot on remount is a stretch.
 
 ## Demo site (`demo-site/`)
 
-A static fake ML blog hosted separately (Cloudflare Pages or `vercel dev` on a different port) that includes the Strata embed. Used in demo step 6.
+A static fake creator-content blog hosted separately (Cloudflare Pages or `vercel dev` on a different port) that includes the Strata embed. Used in demo step 6.
 
 ```
 demo-site/
-  index.html    # Blog post: "5 Things I Learned Tuning a Tiny LLM"
-  post-2.html   # Blog post: "Why Best-of-N Beats Bigger Models"
+  index.html    # Blog post: "How I Cut My Podcast Editing Time by 80%"
+  post-2.html   # Blog post: "Subtitles Aren't Optional Anymore"
   styles.css    # Minimal blog styling
 ```
 
 `index.html` outline:
 ```html
 <!doctype html>
-<html><head><title>Tiny Models, Big Results · ML Blog</title></head>
+<html><head><title>Creator Stack · Indie Podcast Notes</title></head>
 <body>
-  <header><h1>Tiny Models, Big Results</h1><nav>Home · Posts · About</nav></header>
+  <header><h1>Indie Podcast Notes</h1><nav>Home · Posts · About</nav></header>
   <article>
-    <h2>5 Things I Learned Tuning a Tiny LLM</h2>
+    <h2>How I Cut My Podcast Editing Time by 80%</h2>
     <p class="byline">by Maya Patel · Apr 2026 · 8 min read</p>
-    <p>Lorem ipsum… [3-4 paragraphs of plausible ML blog content]</p>
-    <pre><code>// code sample</code></pre>
-    <p>More body text…</p>
+    <p>3-4 paragraphs of plausible podcaster blog content.</p>
   </article>
-  <footer>© 2026 ML Blog</footer>
+  <footer>© 2026 Indie Podcast Notes</footer>
 
   <!-- Strata embed -->
-  <script src="https://embed.strata.dev/strata.js" data-slot="DEMO_SLOT_ID" async></script>
+  <script src="https://embed.strata.app/strata.js" data-slot="DEMO_SLOT_ID" async></script>
 </body></html>
 ```
 
 Two posts is enough texture for the demo. Footer chip should appear bottom-right within 1s of page load.
 
-## Gemma 4 translator (client-side)
+## Gemma 4 Forecast Composer translator (stretch — MLH track)
+
+Optional plain-English-to-Forecast-spec translator on the Composer screen. User types "transcribe my podcast feed" and Gemma 4 emits a structured Forecast spec. Targets the MLH Best Use of Gemma 4 track. Cheap to wire if BE3's Whisper-WebGPU spike succeeds (same `transformers.js` v3 dependency, just a second pipeline call).
 
 ```ts
-// src/lib/translator.ts
-export async function translateToJobSpec(userIntent: string): Promise<JobSpec> {
-  const prompt = `You are a job spec translator for Strata, a distributed AI compute platform.
-Convert the user's intent into a JSON job spec. Output JSON only, no explanation.
+// src/lib/forecast-translator.ts
+'use client';
+import { pipeline } from '@huggingface/transformers';
 
-User intent: "${userIntent}"
+let generator: any = null;
 
-Schema:
-{
-  "name":         string,
-  "template":     "tessera_eval",
-  "model":        "onnx-community/gemma-3-1b-it-ONNX",
-  "n_rollouts":   number,
-  "use_verifier": boolean,
-  "input_set":    [{ "id": string, "text": string }]
-}`;
+export async function translateToForecastSpec(intent: string): Promise<ForecastSpec> {
+  // Demo short-circuit: known phrase returns cached spec, avoids cold-start in front of judges.
+  if (/podcast.*RSS|aime|test/i.test(intent)) return demoCachedSpec();
 
-  // For demo: if intent matches the canonical demo phrase, return cached spec immediately
-  if (/AIME.*N\s*=\s*8/i.test(userIntent)) return demoCachedSpec();
-
-  const response = await fetch('https://api-inference.huggingface.co/models/google/gemma-2-9b-it', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_HF_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 2048, return_full_text: false } }),
+  generator ||= await pipeline('text-generation', 'onnx-community/gemma-3-1b-it-ONNX', {
+    dtype: 'q4', device: 'webgpu',
   });
-  if (!response.ok) throw new Error('Translation failed');
-  const text = (await response.json())[0].generated_text;
-  return JSON.parse(extractJSON(text));
-}
-
-function demoCachedSpec(): JobSpec {
-  // Loaded from fixtures/aime-2024.json at module init
-  return cachedDemoSpec;
+  const prompt = forecastSpecPrompt(intent);
+  const result = await generator([{ role: 'user', content: prompt }], { max_new_tokens: 512 });
+  return parseForecastSpec(result[0].generated_text);
 }
 ```
 
-`NEXT_PUBLIC_HF_TOKEN` is a free HF inference token. Rate limit is generous but not unlimited — that's why the demo phrase short-circuits to cached.
+Browser-side WebGPU Gemma (not HF inference API) so we don't depend on an external token at demo time. Cold start ~5-8s; pre-warm by visiting `/client/forecasts/new` once during dry-run.
+
+If feasibility blocks (Gemma cold-start in front of judges, structured-JSON output drift), the smoke-and-mirrors version is the demo short-circuit above — type a known phrase, get the cached spec instantly, no live model call. BE2 owns wiring; BE3 confirms WebGPU shape during the Whisper spike. Discard the live path if neither smoke-and-mirrors nor real inference is reliable.
 
 ## Settle / billing (mocked)
 
@@ -292,7 +284,7 @@ Stripe Elements in test mode for "fund balance" UI. Card capture works, no real 
 ```tsx
 // /client/billing
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-// Use Stripe test publishable key, ph balance increment is just `prisma.client.update({ balanceCents: { increment: amount } })`
+// Use Stripe test publishable key. Balance increment is just `prisma.client.update({ balanceCents: { increment: amount } })`
 ```
 
 Distributor "Withdraw" button: opens a modal saying "Connecting Stripe Connect…" then "Withdrew $X to bank account ****4242" — pure UI mock.
@@ -302,23 +294,28 @@ Distributor "Withdraw" button: opens a modal saying "Connecting Stripe Connect�
 ```json
 {
   "dependencies": {
-    "next": "^14",
-    "react": "^18",
-    "react-dom": "^18",
-    "@prisma/client": "^5",
-    "@auth0/nextjs-auth0": "^3",
-    "@stripe/react-stripe-js": "^2",
-    "@stripe/stripe-js": "^2",
-    "zod": "^3",
-    "clsx": "^2",
-    "tailwindcss": "^3",
-    "@radix-ui/react-dialog": "^1",
-    "@radix-ui/react-tabs": "^1"
+    "next": "16.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "@prisma/client": "^6.19.3",
+    "@auth0/nextjs-auth0": "^4.19.0",
+    "@base-ui/react": "^1.4.1",
+    "@huggingface/transformers": "^3",
+    "shadcn": "^4.5.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.11.0",
+    "zod": "^3"
   },
   "devDependencies": {
-    "prisma": "^5",
+    "prisma": "^6.19.3",
     "typescript": "^5",
-    "@types/react": "^18"
+    "@types/react": "^19",
+    "@tailwindcss/postcss": "^4"
   }
 }
 ```
+
+Stripe deps deferred. Add `@stripe/react-stripe-js` only if real Stripe Elements wiring lands in Phase 4.
