@@ -35,10 +35,11 @@ export async function dispatchForecast({
   distributorIds = [],
 }: DispatchOptions): Promise<void> {
   const mode = readMode();
+  console.log(`[strata:dispatch] forecast=${forecastId.slice(-6)} mode=${mode}`);
 
   if (mode === "live") {
     void runLive(forecastId).catch((err) => {
-      console.error(`[dispatch] live run failed for ${forecastId}:`, err);
+      console.error(`[strata:dispatch] live run failed for ${forecastId}:`, err);
       void recordFailure(forecastId, err);
     });
     return;
@@ -47,18 +48,22 @@ export async function dispatchForecast({
   if (mode === "cached") {
     const name = fixtureName ?? process.env.DCP_CACHED_FIXTURE ?? "slopify-demo";
     void runCachedReplay(forecastId, name).catch((err) => {
-      console.error(`[dispatch] cached replay failed for ${forecastId}:`, err);
+      console.error(`[strata:dispatch] cached replay failed for ${forecastId}:`, err);
       void recordFailure(forecastId, err);
     });
     return;
   }
 
   void runHardcodeReplay(forecastId, distributorIds).catch((err) => {
-    console.error("[dispatch] hardcode replay error", err);
+    console.error("[strata:dispatch] hardcode replay error", err);
   });
 }
 
 async function runLive(forecastId: string) {
+  const log = (...args: unknown[]) =>
+    console.log(`[strata:live ${forecastId.slice(-6)}]`, ...args);
+
+  log("start");
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
     include: { slices: { orderBy: [{ chunkIndex: "asc" }] } },
@@ -74,19 +79,25 @@ async function runLive(forecastId: string) {
       "No audio path on forecast.inputManifestUrl and DCP_LIVE_AUDIO_PATH not set",
     );
   }
+  log("audio path", audioPath);
 
   const path = await import("node:path");
   const libPath = path.resolve(process.cwd(), "..", "dcp", "lib.mjs");
+  log("loading lib.mjs from", libPath);
   const lib = await import(/* webpackIgnore: true */ `file://${libPath}`);
+  log("lib loaded");
 
   await prisma.forecast.update({
     where: { id: forecastId },
     data: { status: "active", frontOpenedAt: new Date() },
   });
 
+  log("decoding audio");
   const samples = await lib.decodeAudio(audioPath);
+  log("decoded", samples.length, "samples", `(${(samples.length / 16000).toFixed(1)}s)`);
   const chunks = lib.chunkAudio(samples);
   const total = chunks.length;
+  log("chunked into", total, "windows");
 
   await prisma.slice.deleteMany({ where: { forecastId } });
   const newSlices = await Promise.all(
@@ -114,10 +125,12 @@ async function runLive(forecastId: string) {
     total,
     ts: Date.now(),
   });
+  log("front opening, dispatching to dcp");
 
   const result = (await lib.transcribeChunks(chunks, {
     bidPrice: Number(process.env.DCP_BID_PRICE ?? 1),
     returnTimings: true,
+    onProgress: (done: number, t: number) => log(`progress ${done}/${t}`),
   })) as {
     texts: string[];
     dispatchedAt: number;
@@ -126,6 +139,7 @@ async function runLive(forecastId: string) {
       stamps: { workerStart: number; workerEnd: number } & Record<string, number>;
     }>;
   };
+  log("dcp returned", result.texts.length, "texts");
 
   for (const event of result.events) {
     const idx = event.idx as number;
@@ -179,6 +193,7 @@ async function runLive(forecastId: string) {
       text,
       ts: Date.now(),
     });
+    log(`slice ${slice.chunkIndex} done [${region}] "${text.slice(0, 60)}${text.length > 60 ? "..." : ""}"`);
   }
 
   const audioHoursSealed = Number((samples.length / 16000 / 3600).toFixed(3));
@@ -210,8 +225,10 @@ async function runLive(forecastId: string) {
     audioHoursSealed,
     ts: Date.now(),
   });
+  log("catchment sealed,", audioHoursSealed, "hours");
 
   await createSettlement(forecastId, forecast.budgetCents);
+  log("settlement created");
 }
 
 async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) {

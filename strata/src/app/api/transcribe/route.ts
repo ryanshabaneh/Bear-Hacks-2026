@@ -89,6 +89,10 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  console.log(
+    `[strata:upload] saved=${savedPath} bytes=${file.size} chunks=${chunkCount} forecast=${forecast.id.slice(-6)}`,
+  );
+
   void dispatchForecast({
     forecastId: forecast.id,
     fixtureName: fixtureName ?? undefined,

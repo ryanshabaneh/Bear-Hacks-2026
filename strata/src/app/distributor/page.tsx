@@ -103,10 +103,10 @@ export default async function DistributorDashboard() {
             forecastId="j3f"
             slicesTotal={60}
             slicesCompleted={[
-              { chunkIndex: 0, timestampStart: 0, timestampEnd: 30, arrivedAt: Date.now() - 60_000 },
-              { chunkIndex: 1, timestampStart: 30, timestampEnd: 60, arrivedAt: Date.now() - 50_000 },
-              { chunkIndex: 2, timestampStart: 60, timestampEnd: 90, arrivedAt: Date.now() - 30_000 },
-              { chunkIndex: 3, timestampStart: 90, timestampEnd: 120, arrivedAt: Date.now() - 800 },
+              { chunkIndex: 0, timestampStart: 0, timestampEnd: 30, arrivedAt: 0 },
+              { chunkIndex: 1, timestampStart: 30, timestampEnd: 60, arrivedAt: 0 },
+              { chunkIndex: 2, timestampStart: 60, timestampEnd: 90, arrivedAt: 0 },
+              { chunkIndex: 3, timestampStart: 90, timestampEnd: 120, arrivedAt: 0 },
             ]}
             latestLine={{
               timestamp: "00:01:30",

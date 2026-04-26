@@ -76,11 +76,14 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const tag = `[strata:client ${forecastId.slice(-6)}]`;
+    console.log(`${tag} opening EventSource`);
     const source = new EventSource(`/api/forecasts/${forecastId}/stream`);
 
     source.addEventListener("snapshot", (e) => {
       try {
         const payload = JSON.parse((e as MessageEvent).data) as SnapshotPayload;
+        console.log(`${tag} ← snapshot status=${payload.forecast?.status} slices=${payload.forecast?.slices?.length ?? 0}`);
         if (payload.forecast?.status) {
           const s = payload.forecast.status;
           if (s === "queued" || s === "active" || s === "sealing" || s === "sealed" || s === "failed") {
@@ -95,11 +98,15 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
       }
     });
 
-    source.addEventListener("front-opening", () => setStatus("active"));
+    source.addEventListener("front-opening", () => {
+      console.log(`${tag} ← front-opening`);
+      setStatus("active");
+    });
 
     source.addEventListener("slice-arrived", (e) => {
       try {
         const event = JSON.parse((e as MessageEvent).data) as SliceArrivedEvent;
+        console.log(`${tag} ← slice-arrived idx=${event.chunkIndex} text="${event.text.slice(0, 40)}..."`);
         setCompleted((prev) => {
           if (prev.some((p) => p.chunkIndex === event.chunkIndex)) return prev;
           return [
@@ -122,6 +129,7 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
     source.addEventListener("catchment-sealed", (e) => {
       try {
         const event = JSON.parse((e as MessageEvent).data) as CatchmentSealedEvent;
+        console.log(`${tag} ← catchment-sealed bundle=${event.bundleUrl}`);
         setStatus("sealed");
         setBundleUrl(event.bundleUrl);
       } catch {
@@ -132,6 +140,7 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
     source.addEventListener("forecast-failed", (e) => {
       try {
         const event = JSON.parse((e as MessageEvent).data) as ForecastFailedEvent;
+        console.error(`${tag} ← forecast-failed reason=${event.reason}`);
         setStatus("failed");
         setError(event.reason);
       } catch {
@@ -143,7 +152,10 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
       // EventSource auto-reconnects; mostly here to suppress noisy logs
     };
 
-    return () => source.close();
+    return () => {
+      console.log(`${tag} closing EventSource`);
+      source.close();
+    };
   }, [forecastId]);
 
   return (

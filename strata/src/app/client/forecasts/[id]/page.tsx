@@ -45,7 +45,7 @@ export default async function ForecastDetailPage({
       timestampStart: s.timestampStart,
       timestampEnd: s.timestampEnd,
       text: s.outputText ?? undefined,
-      arrivedAt: s.completedAt?.getTime() ?? Date.now(),
+      arrivedAt: s.completedAt?.getTime() ?? 0,
     })),
     catchment: forecast.catchment
       ? {

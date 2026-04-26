@@ -30,12 +30,16 @@ export async function GET(
 
   const encoder = new TextEncoder();
 
+  const tag = `[strata:sse ${id.slice(-6)}]`;
+  console.log(`${tag} client connected`);
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (event: ForecastEvent | { type: "snapshot"; forecast: unknown }) => {
         const json = JSON.stringify(event);
         const eventName = event.type.includes(":") ? event.type.replace(":", "-") : event.type;
         controller.enqueue(encoder.encode(`event: ${eventName}\ndata: ${json}\n\n`));
+        if (event.type !== "snapshot") console.log(`${tag} → ${event.type}`);
       };
 
       send({
@@ -60,6 +64,7 @@ export async function GET(
       const onAbort = () => {
         clearInterval(heartbeat);
         unsub();
+        console.log(`${tag} client disconnected`);
         try {
           controller.close();
         } catch {
