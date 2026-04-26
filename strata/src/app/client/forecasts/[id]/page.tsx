@@ -1,12 +1,12 @@
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
-import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
+import { Window } from "@/components/ui/Window";
 import { Pill } from "@/components/cirrus/primitives/Pill";
-import { CycleBudgetMeter } from "@/components/cirrus/signature/CycleBudgetMeter";
-import { CapabilityBloom } from "@/components/cirrus/signature/CapabilityBloom";
 import { ForecastDetailLive } from "./ForecastDetailLive";
+import { MediaPanel } from "./MediaPanel";
 
 export default async function ForecastDetailPage({
   params,
@@ -30,39 +30,38 @@ export default async function ForecastDetailPage({
   if (!forecast) notFound();
   if (forecast.clientId !== session.user.clientId) redirect("/client");
 
-  const slicesTotal = new Set(forecast.slices.map((s) => s.chunkIndex)).size;
-  const completedSlices = forecast.slices.filter((s) => s.status === "completed");
+  const slicesTotal = new Set(forecast.slices.map((slice) => slice.chunkIndex)).size;
+  const completedSlices = forecast.slices.filter((slice) => slice.status === "completed");
 
-  const initialSnapshot = {
-    id: forecast.id,
-    status: forecast.status,
-    audioHoursTotal: forecast.audioHoursTotal,
-    budgetCents: forecast.budgetCents,
-    budgetCyclesUsed: forecast.budgetCyclesUsed,
-    slicesTotal,
-    completedSlices: completedSlices.map((s) => ({
-      chunkIndex: s.chunkIndex,
-      timestampStart: s.timestampStart,
-      timestampEnd: s.timestampEnd,
-      text: s.outputText ?? undefined,
-      arrivedAt: s.completedAt?.getTime() ?? 0,
-    })),
-    catchment: forecast.catchment
-      ? {
-          bundleUrl: forecast.catchment.bundleUrl,
-          slicesCompleted: forecast.catchment.slicesCompleted,
-        }
-      : null,
-  };
+  const videoExts = ["mp4", "mov", "webm"];
+  const audioExts = ["mp3", "wav", "ogg", "flac", "m4a", "aac"];
+  const fileExt = forecast.inputManifestUrl.split(".").pop()?.toLowerCase() ?? "";
+  const mediaKind: "video" | "audio" | "none" = videoExts.includes(fileExt)
+    ? "video"
+    : audioExts.includes(fileExt)
+      ? "audio"
+      : "none";
+  const mediaSrc = `/api/uploads/${forecast.id}/raw`;
 
-  const totalKilocycles = Math.max(1, Math.round(forecast.budgetCents / 2.9));
+  const initialCompleted = completedSlices.map((slice) => ({
+    chunkIndex: slice.chunkIndex,
+    timestampStart: slice.timestampStart,
+    timestampEnd: slice.timestampEnd,
+    text: slice.outputText ?? undefined,
+    arrivedAt: slice.completedAt?.getTime() ?? 0,
+  }));
 
   return (
     <AppShell role="client" email={session.user.email}>
-      <div className="flex flex-col gap-6 pt-2">
+      <div className="flex flex-col gap-6 pt-6">
+        <Link href="/client" className="y2k-link cirrus-text-unit self-start">
+          &laquo; back to dashboard
+        </Link>
         <header className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <UnitLabel>Forecast · {forecast.id.slice(-4).toUpperCase()}</UnitLabel>
+            <span className="cirrus-text-unit">
+              Forecast · {forecast.id.slice(-4).toUpperCase()}
+            </span>
             <h1 className="cirrus-text-h1">
               {Math.round(forecast.audioHoursTotal * 60)} min audio
             </h1>
@@ -70,34 +69,19 @@ export default async function ForecastDetailPage({
           <StatusPill status={forecast.status} />
         </header>
 
-        <section className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
+        {mediaKind !== "none" ? (
+          <Window title="source.exe" titleBarTone="lavender" sparkles={false}>
+            <MediaPanel src={mediaSrc} kind={mediaKind} />
+          </Window>
+        ) : null}
+
+        <Window title="live.exe" titleBarTone="pink" sparkles={false}>
           <ForecastDetailLive
             forecastId={forecast.id}
             slicesTotal={slicesTotal}
-            initialCompleted={initialSnapshot.completedSlices}
+            initialCompleted={initialCompleted}
           />
-          <div className="flex flex-col gap-4">
-            <CycleBudgetMeter
-              remaining={Math.max(0, totalKilocycles - Math.round(forecast.budgetCyclesUsed))}
-              total={totalKilocycles}
-              costPerKc={0.029}
-              forecastId={forecast.id.slice(-4)}
-            />
-            <CapabilityBloom
-              totalNodes={47}
-              capabilities={{
-                WASM_SIMD: 47,
-                AUDIO_PCM: 47,
-                ENGLISH_OK: 47,
-                ONNX_INT8: 47,
-                KV_CACHE: 47,
-                F32: 47,
-              }}
-            />
-          </div>
-        </section>
-
-        <CostComparePanel audioHours={forecast.audioHoursTotal} />
+        </Window>
       </div>
     </AppShell>
   );
@@ -110,33 +94,4 @@ function StatusPill({ status }: { status: string }) {
   if (status === "sealed") return <Pill tone="sage">Catchment sealed</Pill>;
   if (status === "failed") return <Pill tone="coral">Failed</Pill>;
   return <Pill tone="neutral">{status}</Pill>;
-}
-
-function CostComparePanel({ audioHours }: { audioHours: number }) {
-  const rows: Array<{ name: string; rate: number; emphasis?: boolean; muted?: boolean }> = [
-    { name: "Strata", rate: 0.04, emphasis: true },
-    { name: "AssemblyAI", rate: 0.12 },
-    { name: "Whisper API", rate: 0.36 },
-    { name: "Rev AI", rate: 1.2 },
-    { name: "Rev human", rate: 90, muted: true },
-  ];
-  return (
-    <section className="cirrus-card p-4 flex flex-col gap-2 max-w-[480px]">
-      <UnitLabel>Cost · live</UnitLabel>
-      {rows.map((row) => (
-        <div
-          key={row.name}
-          className="flex items-center justify-between cirrus-text-mono-id"
-          style={{ opacity: row.muted ? 0.5 : 1 }}
-        >
-          <span style={{ fontWeight: row.emphasis ? 500 : 400, color: row.emphasis ? "var(--color-coral-700)" : undefined }}>
-            {row.name}
-          </span>
-          <span className="cirrus-num" style={{ fontWeight: row.emphasis ? 500 : 400 }}>
-            ${(audioHours * row.rate).toFixed(3)}
-          </span>
-        </div>
-      ))}
-    </section>
-  );
 }

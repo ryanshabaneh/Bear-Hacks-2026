@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CatchmentAssembling } from "@/components/cirrus/signature/CatchmentAssembling";
 import { FrontOpening } from "@/components/cirrus/signature/FrontOpening";
 import { Pill } from "@/components/cirrus/primitives/Pill";
+import { TranscriptStream } from "./TranscriptStream";
 
 type Completed = {
   chunkIndex: number;
@@ -176,6 +177,8 @@ export function ForecastDetailLive({ forecastId, slicesTotal, initialCompleted }
         slicesCompleted={completed}
         latestLine={latestLine}
       />
+
+      <TranscriptStream forecastId={forecastId} segments={completed} />
 
       {bundleUrl ? (
         <div className="cirrus-card p-3 flex items-center justify-between">
