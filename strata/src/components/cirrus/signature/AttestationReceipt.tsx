@@ -38,11 +38,11 @@ export function AttestationReceipt({ attestation, variant = "inline", className 
       role="group"
       aria-label="Slice attestation"
       className={cn(
-        "cirrus-card p-3 flex flex-col gap-1",
+        "y2k-tile flex flex-col gap-1.5",
         variant === "hover" ? "shadow-none" : "",
         className,
       )}
-      style={{ minWidth: 240 }}
+      style={{ minWidth: 240, padding: "12px 14px" }}
     >
       <ReceiptRow k="SLICE" v={sliceLabel} />
       <ReceiptRow k="HASH" v={truncatedHash} accent="coral" mono />
@@ -51,7 +51,7 @@ export function AttestationReceipt({ attestation, variant = "inline", className 
       <ReceiptRow k="ORACLE" v={oracleLabel} />
       <ReceiptRow
         k="SIG"
-        v={`scheduler ${attestation.schedulerSig === "valid" ? "✓" : "✗"}`}
+        v={`scheduler ${attestation.schedulerSig === "valid" ? "ok" : "fail"}`}
         accent={attestation.schedulerSig === "valid" ? "ink" : "coral"}
       />
     </div>
@@ -75,13 +75,19 @@ function ReceiptRow({
       : accent === "sage"
         ? "var(--color-sage-800)"
         : accent === "ink"
-          ? "var(--color-ink-700)"
-          : undefined;
+          ? "var(--y2k-border)"
+          : "var(--y2k-border)";
 
   return (
-    <div className="flex items-center justify-between gap-3 cirrus-text-mono-id" style={{ fontSize: 10.5, lineHeight: 1.5 }}>
-      <span className="opacity-60">{k}</span>
-      <span className={mono ? "cirrus-num" : undefined} style={{ color: valueColor }}>
+    <div
+      className="flex items-center justify-between gap-3 cirrus-text-mono-id"
+      style={{ fontSize: 11, lineHeight: 1.5 }}
+    >
+      <span style={{ opacity: 0.6, letterSpacing: "0.08em" }}>{k}</span>
+      <span
+        className={mono ? "cirrus-num" : undefined}
+        style={{ color: valueColor, fontWeight: 600 }}
+      >
         {v}
       </span>
     </div>

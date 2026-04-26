@@ -12,6 +12,7 @@ type Step = {
   title: string;
   body: React.ReactNode;
   imageSrc?: string;
+  imageAsset?: string;
   imageAlt: string;
 };
 
@@ -25,7 +26,8 @@ const STEPS: Step[] = [
         your Node runs. Leave any time.
       </p>
     ),
-    imageAlt: "Sky of nodes illustration",
+    imageAsset: "/assets/crescent.svg",
+    imageAlt: "Moon and star sky mark",
   },
   {
     windowTitle: "how-earning-works.exe",
@@ -36,7 +38,8 @@ const STEPS: Step[] = [
         Payouts run weekly above one dollar.
       </p>
     ),
-    imageAlt: "Earnings flow illustration",
+    imageAsset: "/assets/flower.svg",
+    imageAlt: "Bloom of earnings",
   },
   {
     windowTitle: "whats-safe.exe",
@@ -47,7 +50,8 @@ const STEPS: Step[] = [
         completion. Sandboxed in a browser tab. Stop any time.
       </p>
     ),
-    imageAlt: "Sandboxed node illustration",
+    imageAsset: "/assets/moonl.svg",
+    imageAlt: "Calm moon for sandboxed safety",
   },
 ];
 
@@ -88,7 +92,7 @@ export function DistributorOnboardingModal() {
       <div className="flex flex-col gap-4">
         <Stepper variant="y2k" total={STEPS.length} current={stepIdx + 1} />
 
-        <TutorialImage src={step.imageSrc} alt={step.imageAlt} />
+        <TutorialImage src={step.imageSrc} asset={step.imageAsset} alt={step.imageAlt} />
 
         <div className="flex flex-col gap-2">
           <h2 className="y2k-mono" style={{ fontSize: 18, fontWeight: 600, color: "var(--y2k-border)" }}>

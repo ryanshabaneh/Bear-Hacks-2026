@@ -19,15 +19,24 @@ export function CapabilityBloom({ totalNodes, capabilities, className }: Props) 
   const ratio = (n: number) => (totalNodes > 0 ? Math.max(0.45, n / totalNodes) : 0);
 
   return (
-    <div className={cn("cirrus-card p-3.5 flex flex-col gap-2", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
       <header className="flex items-center justify-between">
-        <span className="cirrus-text-unit opacity-80">Sky · {totalNodes} nodes</span>
-        <span className="cirrus-text-mono-id opacity-60" style={{ fontSize: 9 }}>
+        <span className="cirrus-text-unit" style={{ opacity: 0.85 }}>
+          Sky · {totalNodes} nodes
+        </span>
+        <span className="cirrus-text-mono-id" style={{ fontSize: 10, opacity: 0.6 }}>
           self-reported
         </span>
       </header>
 
-      <div className="relative w-full" style={{ aspectRatio: "180 / 140" }}>
+      <div
+        className="relative w-full"
+        style={{
+          aspectRatio: "180 / 140",
+          background: "var(--y2k-window-pink)",
+          border: "1.5px solid var(--y2k-border)",
+        }}
+      >
         <svg
           viewBox="0 0 180 140"
           preserveAspectRatio="xMidYMid meet"
@@ -36,20 +45,20 @@ export function CapabilityBloom({ totalNodes, capabilities, className }: Props) 
           aria-label={`Capability bloom for ${totalNodes} nodes`}
         >
           <g transform="translate(90,75)">
-            <circle cx="0" cy="0" r="16" fill="rgba(13,24,40,0.92)" />
+            <circle cx="0" cy="0" r="16" fill="#1f1840" stroke="#1f1840" strokeWidth="1" />
             <text
               x="0"
               y="3"
               textAnchor="middle"
-              fill="#fafaf7"
+              fill="#fde6f2"
               fontFamily="ui-monospace, monospace"
               fontSize="9"
-              fontWeight="500"
+              fontWeight="700"
             >
               {totalNodes}
             </text>
 
-            <g stroke="rgba(244,136,90,0.5)" fill="none" strokeWidth="0.8">
+            <g stroke="rgba(31,24,64,0.55)" fill="none" strokeWidth="0.8">
               <line x1="0" y1="-16" x2="0" y2="-46" />
               <line x1="14" y1="-8" x2="40" y2="-23" />
               <line x1="14" y1="8" x2="40" y2="23" />
@@ -58,11 +67,11 @@ export function CapabilityBloom({ totalNodes, capabilities, className }: Props) 
               <line x1="-14" y1="-8" x2="-40" y2="-23" />
             </g>
 
-            <BloomPetal cx={0} cy={-50} rx={24} ry={10} fill="#b8c8d8" opacity={ratio(capabilities.WASM_SIMD)} label={`WASM ${capabilities.WASM_SIMD}`} ty={-48} />
-            <BloomPetal cx={44} cy={-25} rx={22} ry={9} fill="#98b898" opacity={ratio(capabilities.AUDIO_PCM)} label={`PCM ${capabilities.AUDIO_PCM}`} ty={-23} />
-            <BloomPetal cx={44} cy={25} rx={22} ry={9} fill="#e8c878" opacity={ratio(capabilities.ONNX_INT8)} label={`INT8 ${capabilities.ONNX_INT8}`} ty={27} />
-            <BloomPetal cx={0} cy={50} rx={24} ry={10} fill="#f4885a" opacity={ratio(capabilities.KV_CACHE)} label={`KV ${capabilities.KV_CACHE}`} ty={52} />
-            <BloomPetal cx={-44} cy={25} rx={22} ry={9} fill="#c8d4e0" opacity={ratio(capabilities.ENGLISH_OK)} label={`EN ${capabilities.ENGLISH_OK}`} ty={27} />
+            <BloomPetal cx={0} cy={-50} rx={24} ry={10} fill="#b8d0ee" opacity={ratio(capabilities.WASM_SIMD)} label={`WASM ${capabilities.WASM_SIMD}`} ty={-48} />
+            <BloomPetal cx={44} cy={-25} rx={22} ry={9} fill="#c5e6d4" opacity={ratio(capabilities.AUDIO_PCM)} label={`PCM ${capabilities.AUDIO_PCM}`} ty={-23} />
+            <BloomPetal cx={44} cy={25} rx={22} ry={9} fill="#f5e0a8" opacity={ratio(capabilities.ONNX_INT8)} label={`INT8 ${capabilities.ONNX_INT8}`} ty={27} />
+            <BloomPetal cx={0} cy={50} rx={24} ry={10} fill="#f3a8d3" opacity={ratio(capabilities.KV_CACHE)} label={`KV ${capabilities.KV_CACHE}`} ty={52} />
+            <BloomPetal cx={-44} cy={25} rx={22} ry={9} fill="#c8b8e0" opacity={ratio(capabilities.ENGLISH_OK)} label={`EN ${capabilities.ENGLISH_OK}`} ty={27} />
             <BloomPetal cx={-44} cy={-25} rx={22} ry={9} fill="#fbd9c0" opacity={ratio(capabilities.F32)} label={`F32 ${capabilities.F32}`} ty={-23} />
           </g>
         </svg>
@@ -92,15 +101,24 @@ function BloomPetal({
 }) {
   return (
     <g>
-      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={fill} opacity={opacity} />
+      <ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx}
+        ry={ry}
+        fill={fill}
+        stroke="#1f1840"
+        strokeWidth="0.8"
+        opacity={opacity}
+      />
       <text
         x={cx}
         y={ty}
         textAnchor="middle"
-        fill="#0d1828"
+        fill="#1f1840"
         fontFamily="ui-monospace, monospace"
         fontSize="7"
-        fontWeight="500"
+        fontWeight="600"
       >
         {label}
       </text>

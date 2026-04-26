@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Pill } from "@/components/cirrus/primitives/Pill";
-import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
 import type { AccountRole } from "@/lib/auth/session";
+import { Brandmark } from "@/components/ui/Brandmark";
 
 export function Topbar({
   role,
@@ -11,49 +10,59 @@ export function Topbar({
   email: string;
 }) {
   return (
-    <header className="flex items-center justify-between px-6 sm:px-8 lg:px-12 py-4 lg:py-5">
-      <div className="flex items-center gap-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span aria-hidden="true" className="block w-2 h-2 rounded-full bg-coral-500" />
-          <span className="cirrus-text-h2">Strata</span>
+    <header
+      className="flex items-center justify-between px-6 sm:px-8 lg:px-12 py-3"
+      style={{
+        background: "var(--y2k-titlebar-lavender)",
+        borderBottom: "1.5px solid var(--y2k-border)",
+        boxShadow: "0 4px 0 0 var(--y2k-shadow)",
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <Link href="/" className="group">
+          <Brandmark />
         </Link>
-        <span className="opacity-30" aria-hidden>/</span>
-        <Pill tone="neutral">{role === "distributor" ? "Distributor" : "Client"}</Pill>
+        <span className="opacity-50 y2k-mono" aria-hidden>
+          ::
+        </span>
+        <span
+          className="y2k-mono"
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            color: "var(--y2k-border)",
+            border: "1.5px solid var(--y2k-border)",
+            background: "var(--y2k-window)",
+            padding: "2px 8px",
+            boxShadow: "1px 1px 0 0 var(--y2k-shadow)",
+          }}
+        >
+          {role === "distributor" ? "Distributor" : "Client"}
+        </span>
       </div>
 
-      <nav className="flex items-center gap-6 cirrus-text-body-sm">
+      <nav className="flex items-center gap-5 y2k-mono" style={{ fontSize: 12 }}>
         {role === "distributor" ? (
-          <>
-            <Link href="/distributor" className="opacity-80 hover:opacity-100">
-              Dashboard
-            </Link>
-            <Link href="/distributor/sites" className="opacity-80 hover:opacity-100">
-              Sites
-            </Link>
-            <Link href="/distributor/payouts" className="opacity-80 hover:opacity-100">
-              Payouts
-            </Link>
-          </>
+          <Link href="/distributor" className="y2k-link">
+            Dashboard
+          </Link>
         ) : (
-          <>
-            <Link href="/client" className="opacity-80 hover:opacity-100">
-              Dashboard
-            </Link>
-            <Link href="/client/forecasts/new" className="opacity-80 hover:opacity-100">
-              New Forecast
-            </Link>
-            <Link href="/client/balance" className="opacity-80 hover:opacity-100">
-              Balance
-            </Link>
-          </>
+          <Link href="/client" className="y2k-link">
+            Studio
+          </Link>
         )}
 
-        <span className="flex items-center gap-2 opacity-60">
-          <UnitLabel className="opacity-80">{email}</UnitLabel>
-          <Link href="/auth/logout" className="opacity-80 hover:opacity-100" aria-label="Sign out">
-            Sign out
-          </Link>
+        <span
+          className="y2k-mono"
+          style={{ fontSize: 10.5, opacity: 0.7, color: "var(--y2k-border)" }}
+        >
+          {email}
         </span>
+        <Link href="/auth/logout" className="y2k-link" aria-label="Sign out">
+          Sign out
+        </Link>
       </nav>
     </header>
   );

@@ -12,43 +12,50 @@ type Step = {
   title: string;
   body: React.ReactNode;
   imageSrc?: string;
+  imageAsset?: string;
   imageAlt: string;
 };
 
 const STEPS: Step[] = [
   {
-    windowTitle: "welcome.exe",
-    title: "Welcome to Strata.",
+    windowTitle: "strata.exe",
+    title: "Hi. I'm Strata.",
     body: (
       <p>
-        Post a Forecast. The Sky catches it. Your Catchment lands ready to read.
-        Eighty to ninety-five percent under cloud rates.
+        Your stratosphere orchestrator, the transcriber. Drop audio or video
+        into your queue and I&apos;ll get it transcribed clean. Eighty to
+        ninety-five percent under what the clouds charge.
       </p>
     ),
-    imageAlt: "Strata sky illustration",
+    imageAsset: "/assets/orb.svg",
+    imageAlt: "Strata orb mark",
   },
   {
-    windowTitle: "how-it-works.exe",
-    title: "How a Forecast runs.",
+    windowTitle: "the-sky.exe",
+    title: "How a cast runs.",
     body: (
       <p>
-        Your audio splits into thirty-second slices. Each slice runs on a
-        sandboxed Node and returns. Strata reassembles the pieces into one
-        Catchment.
+        Every Forecast splits into thirty-second slices. I dispatch them
+        across the Sky and your transcript comes back in real time. The
+        queue is your staging zone. Cast on demand, or let me run it
+        hands-free.
       </p>
     ),
-    imageAlt: "Forecast flow diagram",
+    imageAsset: "/assets/twin-star.svg",
+    imageAlt: "Slices dispatching across the Sky",
   },
   {
-    windowTitle: "youre-in.exe",
-    title: "You're in.",
+    windowTitle: "controls.exe",
+    title: "Two switches you'll want.",
     body: (
       <p>
-        Five dollars in free credits. No plan to choose. Try a sample Forecast
-        or upload your own audio.
+        Auto-queue adds dropped files straight to the line. Auto-cast fires
+        the queue without waiting for you. Flip both for hands-free, or
+        leave them off to review before each cast.
       </p>
     ),
-    imageAlt: "Open dashboard preview",
+    imageAsset: "/assets/clover.svg",
+    imageAlt: "Three-blade switch motif",
   },
 ];
 
@@ -89,7 +96,7 @@ export function ClientOnboardingModal() {
       <div className="flex flex-col gap-4">
         <Stepper variant="y2k" total={STEPS.length} current={stepIdx + 1} />
 
-        <TutorialImage src={step.imageSrc} alt={step.imageAlt} />
+        <TutorialImage src={step.imageSrc} asset={step.imageAsset} alt={step.imageAlt} />
 
         <div className="flex flex-col gap-2">
           <h2 className="y2k-mono" style={{ fontSize: 18, fontWeight: 600, color: "var(--y2k-border)" }}>

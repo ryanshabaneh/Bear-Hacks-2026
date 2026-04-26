@@ -104,13 +104,10 @@ export function AudioFilePicker({ onFile, className }: Props) {
         >
           <span className="cirrus-text-h2">Drop an audio file here.</span>
           <span className="cirrus-text-body-sm opacity-60">
-            mp3, wav, ogg, flac, m4a — up to about 60 minutes.
+            mp3, wav, ogg, flac, m4a, up to about 60 minutes.
           </span>
-          <span
-            className="mt-1 inline-flex items-center px-4 py-2 rounded-md cirrus-card cirrus-text-body-sm"
-            style={{ borderRadius: "var(--radius-md)" }}
-          >
-            Or click to browse
+          <span className="mt-1 inline-flex items-center y2k-button">
+            or click to browse
           </span>
         </button>
       ) : (

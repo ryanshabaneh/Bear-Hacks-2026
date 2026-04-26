@@ -54,16 +54,11 @@ export function FrontOpening({
   return (
     <div
       className={cn(
-        "forecast-tile relative overflow-hidden p-4 cirrus-card",
-        showStaticActiveBackdrop ? "front-tile-active" : "",
+        "forecast-tile relative overflow-hidden p-4 y2k-tile",
+        showStaticActiveBackdrop ? "y2k-tile-pink" : "",
         animating ? "front-tile-animating" : "",
         className,
       )}
-      style={{
-        background: showStaticActiveBackdrop ? "var(--surface-inverse)" : undefined,
-        color: showStaticActiveBackdrop ? "var(--color-cream)" : undefined,
-        borderRadius: "var(--radius-lg)",
-      }}
       data-forecast-id={forecastId}
     >
       {showStaticActiveBackdrop ? (
@@ -78,9 +73,9 @@ export function FrontOpening({
             y1="50"
             x2="102"
             y2="50"
-            stroke="#f4885a"
-            strokeWidth="1.5"
-            opacity="0.5"
+            stroke="#1f1840"
+            strokeWidth="1"
+            opacity="0.35"
             className={animating ? "front-sweep-line" : undefined}
           />
           <line
@@ -89,35 +84,35 @@ export function FrontOpening({
             x2="102"
             y2="50"
             stroke="#f4885a"
-            strokeWidth="4"
-            opacity="0.15"
+            strokeWidth="3"
+            opacity="0.20"
             className={animating ? "front-sweep-halo" : undefined}
           />
-          <circle cx="22" cy="22" r="0.6" fill="#f4885a" />
-          <circle cx="44" cy="78" r="0.6" fill="#f4885a" />
-          <circle cx="66" cy="34" r="0.6" fill="#f4885a" />
-          <circle cx="88" cy="68" r="0.6" fill="#f4885a" />
+          <circle cx="22" cy="22" r="0.8" fill="#1f1840" />
+          <circle cx="44" cy="78" r="0.8" fill="#1f1840" />
+          <circle cx="66" cy="34" r="0.8" fill="#1f1840" />
+          <circle cx="88" cy="68" r="0.8" fill="#1f1840" />
         </svg>
       ) : null}
 
       <div className="relative z-[2] flex flex-col gap-2">
         <header className="flex items-center justify-between">
-          <UnitLabel className={showStaticActiveBackdrop ? "text-cream" : ""}>
-            Forecast · {forecastId.toUpperCase()}
-          </UnitLabel>
+          <UnitLabel>Forecast · {forecastId.toUpperCase()}</UnitLabel>
           <Pill tone={meta.tone}>{meta.label}</Pill>
         </header>
 
         <h3 className="cirrus-text-h2">{title}</h3>
 
         {status !== "queued" ? (
-          <p className="cirrus-text-body-sm opacity-80">
+          <p className="cirrus-text-body-sm" style={{ opacity: 0.8 }}>
             {cyclesDispatching ? `${cyclesDispatching} cycles dispatching` : "dispatch underway"}
             {nodes ? ` across ${nodes} nodes` : ""}
-            {status !== "sealed" ? ` · ETA ${etaMinMin}–${etaMaxMin} min` : ""}
+            {status !== "sealed" ? ` · ETA ${etaMinMin} to ${etaMaxMin} min` : ""}
           </p>
         ) : (
-          <p className="cirrus-text-body-sm opacity-60">queued · waiting for next Front</p>
+          <p className="cirrus-text-body-sm" style={{ opacity: 0.6 }}>
+            queued, waiting for next Front
+          </p>
         )}
       </div>
 

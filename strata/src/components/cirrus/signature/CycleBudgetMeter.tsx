@@ -26,9 +26,9 @@ export function CycleBudgetMeter({
   const budgetDollars = (total * costPerKc).toFixed(2);
 
   return (
-    <div className={cn("cirrus-card p-3.5 flex flex-col gap-2", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
       <header className="flex items-center justify-between">
-        <span className="cirrus-text-unit opacity-80">
+        <span className="cirrus-text-unit" style={{ opacity: 0.85 }}>
           Cycle budget{forecastId ? ` · ${forecastId.toUpperCase()}` : ""}
         </span>
         <span className="cirrus-num cirrus-text-unit">
@@ -36,7 +36,14 @@ export function CycleBudgetMeter({
         </span>
       </header>
 
-      <div className="relative w-full" style={{ aspectRatio: "240 / 130" }}>
+      <div
+        className="relative w-full"
+        style={{
+          aspectRatio: "240 / 130",
+          background: "var(--y2k-window-cream)",
+          border: "1.5px solid var(--y2k-border)",
+        }}
+      >
         <svg
           viewBox="0 0 240 130"
           preserveAspectRatio="xMidYMid meet"
@@ -56,18 +63,18 @@ export function CycleBudgetMeter({
           <path
             d="M 30 110 A 90 90 0 0 1 210 110"
             fill="none"
-            stroke="rgba(13,24,40,0.15)"
-            strokeWidth="1"
+            stroke="rgba(31,24,64,0.20)"
+            strokeWidth="1.2"
           />
 
           <path
             d={describeArc(120, 110, 90, -90, angleDeg)}
             fill="none"
-            stroke="#0d1828"
-            strokeWidth="2"
+            stroke="#1f1840"
+            strokeWidth="2.5"
           />
 
-          <g stroke="#1f2a3a" strokeWidth="0.6" fill="none" opacity="0.5">
+          <g stroke="#1f1840" strokeWidth="0.8" fill="none" opacity="0.6">
             <line x1="30" y1="110" x2="36" y2="106" />
             <line x1="60" y1="60" x2="66" y2="64" />
             <line x1="120" y1="20" x2="120" y2="28" />
@@ -78,32 +85,35 @@ export function CycleBudgetMeter({
           <text
             x="30"
             y="120"
-            fill="#3a4a5a"
+            fill="#1f1840"
             fontFamily="ui-monospace, monospace"
             fontSize="6.5"
             letterSpacing="0.5"
+            opacity="0.7"
           >
             980
           </text>
           <text
             x="120"
             y="14"
-            fill="#3a4a5a"
+            fill="#1f1840"
             fontFamily="ui-monospace, monospace"
             fontSize="6.5"
             letterSpacing="0.5"
             textAnchor="middle"
+            opacity="0.7"
           >
             1013 hPa
           </text>
           <text
             x="210"
             y="120"
-            fill="#3a4a5a"
+            fill="#1f1840"
             fontFamily="ui-monospace, monospace"
             fontSize="6.5"
             letterSpacing="0.5"
             textAnchor="end"
+            opacity="0.7"
           >
             1040
           </text>
@@ -120,16 +130,16 @@ export function CycleBudgetMeter({
             <line x1="120" y1="110" x2="120" y2="40" stroke="#f4885a" strokeWidth="7" strokeLinecap="round" opacity="0.3" />
           </g>
 
-          <circle cx="120" cy="110" r="4" fill="#0d1828" />
-          <circle cx="120" cy="110" r="1.5" fill="#d4e0ec" />
+          <circle cx="120" cy="110" r="4" fill="#1f1840" />
+          <circle cx="120" cy="110" r="1.5" fill="#fde6f2" />
 
           <text
             x="120"
             y="94"
-            fill="#0d1828"
+            fill="#1f1840"
             fontFamily="ui-monospace, monospace"
             fontSize="13"
-            fontWeight="500"
+            fontWeight="600"
             textAnchor="middle"
           >
             {currentHpa}
@@ -137,19 +147,20 @@ export function CycleBudgetMeter({
           <text
             x="120"
             y="104"
-            fill="#3a4a5a"
+            fill="#1f1840"
             fontFamily="ui-monospace, monospace"
             fontSize="6"
             letterSpacing="0.8"
             textAnchor="middle"
+            opacity="0.7"
           >
             HPA · {remaining} KC
           </text>
         </svg>
       </div>
 
-      <p className="cirrus-text-mono-id opacity-70" style={{ fontSize: 10.5 }}>
-        ${costPerKc.toFixed(3)} / kc · ${burnedDollars} of ${budgetDollars} · settles in 4–7 min
+      <p className="cirrus-text-mono-id" style={{ fontSize: 11, opacity: 0.75 }}>
+        ${costPerKc.toFixed(3)} / kc · ${burnedDollars} of ${budgetDollars} · settles in 4 to 7 min
       </p>
 
       <style>{`
