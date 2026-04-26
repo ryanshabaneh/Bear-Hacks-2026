@@ -40,7 +40,7 @@ Master reference: `strata-workflow.pdf`. When any other doc conflicts, PDF wins.
           |    POST /api/jobs               |
           |    POST /api/slots              |
           |    GET  /api/embed/:slotId      |
-          |    POST /api/slices/:id/result  |
+          |    POST /api/jobs/:id/slice-result|
           |    GET  /api/jobs/:id/stream    |
           |                                 |
           v                                 v
@@ -98,7 +98,7 @@ job.public = { name: "Tessera reasoning eval", description: "..." };
 job.on('result', (ev) => {
   // ev.result.result = { chain_of_thought, final_answer, tokens_used }
   // ev.sort = slice index
-  // POST to Strata API /api/slices/:id/result
+  // POST to Strata API /api/jobs/:id/slice-result
 });
 
 job.on('status', (ev) => {

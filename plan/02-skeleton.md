@@ -50,6 +50,7 @@ model Distributor {
   user                     User    @relation(fields: [userId], references: [id])
   displayName              String
   stripeConnectAccountId   String?
+  dcpPaymentAddress        String  // public address of the Distributor's DCP keystore — Nodes earn DCC here
   status                   String  @default("active")
   sites                    Site[]
   slots                    ComputeSlot[]
@@ -213,15 +214,24 @@ app/
     jobs/new/page.tsx          # job submission (Gemma translator)
     jobs/[id]/page.tsx         # job detail + live results
   api/
-    auth/stub/route.ts         # POST stub login
-    auth/[auth0]/route.ts      # Auth0 callbacks (when AUTH_MODE=auth0)
-    sites/route.ts             # POST create site
-    sites/[id]/verify/route.ts # GET poll verification, POST trigger check
-    slots/route.ts             # POST create slot
-    embed/[slotId]/route.ts    # GET serves strata.js with baked secret — see 04-embed.md
-    jobs/route.ts              # POST create job
-    jobs/[id]/stream/route.ts  # GET SSE stream
-    slices/[id]/result/route.ts # POST callback from DCP submit worker
+    auth/stub/route.ts                  # POST stub login (AUTH_MODE=stub only)
+    auth/[auth0]/route.ts               # Auth0 catch-all callbacks (AUTH_MODE=auth0)
+    sites/route.ts                      # POST create site
+    sites/[id]/verify/route.ts          # GET poll verification, POST trigger check
+    slots/route.ts                      # POST create slot
+    embed/[slotId]/config/route.ts      # GET runtime config (paymentAddress + joinSecret) — see 04-embed.md
+    jobs/route.ts                       # POST create job
+    jobs/[id]/stream/route.ts           # GET SSE stream (Client dashboard)
+    jobs/[id]/accepted/route.ts         # POST callback: DCP scheduler accepted the job
+    jobs/[id]/status/route.ts           # POST callback: status tick from submit worker
+    jobs/[id]/slice-result/route.ts     # POST callback: one slice completed (body has sliceIndex + phase)
+    jobs/[id]/slice-error/route.ts      # POST callback: one slice failed
+    jobs/[id]/done/route.ts             # POST callback: verifier complete, body has winners
+    jobs/[id]/failed/route.ts           # POST callback: job failed before completion
+    distributors/[id]/stream/route.ts   # GET SSE stream (Distributor dashboard earnings ticks)
+
+# All /api/jobs/[id]/* and /api/distributors/[id]/stream callbacks from the submit worker
+# require Authorization: Bearer ${DCP_WORKER_SHARED_SECRET} — see 06-auth0.md.
 ```
 
 ## Design system (FE, ~3h, parallel with BE work)
@@ -230,6 +240,19 @@ app/
 - Init shadcn/ui: `npx shadcn-ui@latest init`
 - Add components: `button`, `card`, `input`, `select`, `dialog`, `tabs`, `table`
 - Build `AppShell` component: topbar (logo, role badge, sign-out) + sidebar (role-aware nav) + content slot
+
+## Running locally (4 processes)
+
+| Process | Port | Command (run from each dir) |
+|---|---|---|
+| Next.js app | 3000 | `cd strata && npm run dev` |
+| DCP submit worker | 3001 | `cd dcp-submit-worker && npm run dev` — see [03-dcp-integration.md](03-dcp-integration.md) |
+| Demo site (fake ML blog) | 5174 | `cd demo-site && npx serve -l 5174` |
+| ngrok (so DCP can call back to localhost:3001) | — | `ngrok http 3001` then paste the https URL into `DCP_SUBMIT_WORKER_URL` in `strata/.env.local` |
+
+Optional 5th: `npx prisma studio` on 5555 for inspecting DB during dev.
+
+For the demo, set `DCP_SUBMIT_WORKER_URL` to the ngrok URL (or the Vultr public URL). The Next.js app POSTs to `${DCP_SUBMIT_WORKER_URL}/submit` with the job spec; the submit worker POSTs back to the Vercel preview URL (or `http://localhost:3000` during dev — but DCP scheduler can't reach localhost, so use ngrok in reverse for that direction too if testing real DCP, OR run the submit worker on the same machine as Next.js dev and use `http://localhost:3000`).
 
 ## Phase 1 exit criteria
 

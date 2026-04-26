@@ -56,33 +56,43 @@ Detailed task ownership per phase is in [strata-architecture.md](strata-architec
 
 ## Repo layout (target)
 
+The work happens **inside this `Bear-Hacks-2026/` repo**. Scaffold each app as a top-level sibling directory — do not nest in a `strata/` subdir. The existing `docs/`, `tessera-test/`, `plan/` directories stay where they are.
+
 ```
-strata/
-  app/                   # Next.js App Router (one project, role-gated)
-    (marketing)/         # landing, signup
-    distributor/         # Distributor dashboard
-    client/              # Client dashboard
-    api/
-      jobs/              # POST job, GET stream
-      slots/             # Distributor slots
-      embed/[slotId]/    # serves embed.js with baked secret
-      slices/[id]/result # callback from DCP submit worker
-  prisma/
-    schema.prisma        # User/Distributor/Client/Site/Job/Slice/Settlement
-  dcp-submit-worker/     # Node.js — runs on Vultr, calls compute.for()
-    src/index.js
-    src/rollout.js       # Phase 4 job
-    src/verifier.js      # Phase 5 job
-    src/aggregator.js
-  embed/                 # Cloudflare Pages
-    strata.js            # IIFE entry, injects iframe
-    runtime.html         # iframe content, loads dcp-client + worker
-    chip.css
-  demo-site/             # Static fake ML blog with embed installed (for demo step 6)
+Bear-Hacks-2026/                # this repo
+  strata/                       # Next.js app (created via `npx create-next-app strata` from repo root)
+    app/                        # App Router (one project, role-gated)
+      (marketing)/              # landing, signup
+      distributor/              # Distributor dashboard
+      client/                   # Client dashboard
+      api/                      # see 02-skeleton.md for full route list
+    prisma/
+      schema.prisma             # User/Distributor/Client/Site/ComputeSlot/Job/Slice/Settlement
+    src/lib/                    # auth, db, sse, worker-callbacks, translator
+  dcp-submit-worker/            # Node.js — owns ~/.dcp/ keystores, calls compute.for()
+    src/index.js                # Express server (port 3001)
+    src/dcp.js                  # init helpers
+    src/rollout.js              # Phase 4 job
+    src/verifier.js             # Phase 5 job + aggregator
+    package.json                # see 03-dcp-integration.md
+    SPIKE.md                    # Gemma-in-sandbox spike outcome (T+2)
+  embed/                        # Cloudflare Pages target
+    strata.js                   # IIFE loader, ~2KB
+    runtime.html                # iframe content, loads dcp-client + worker
+    what-is-this.html           # explainer modal page
+  demo-site/                    # Static fake ML blog with embed installed (demo step 6)
+    index.html
+    post-2.html
+    styles.css
   fixtures/
-    aime-2024.json       # 30 AIME problems + ground truth answers
-    single-shot-baseline.json  # pre-computed Gemma single-shot results for the comparison
+    aime-2024.json              # 30 AIME problems + ground truth answers
+    single-shot-baseline.json   # pre-computed Gemma single-shot results
+  docs/                         # (existing) DCP docs, Devpost info
+  tessera-test/                 # (existing) Gemma-in-browser standalone proof
+  plan/                         # (this) build plan
 ```
+
+After Phase 1, the repo root will hold 4 sibling app dirs (`strata/`, `dcp-submit-worker/`, `embed/`, `demo-site/`) plus `fixtures/` and the existing `docs/`, `tessera-test/`, `plan/`.
 
 ## Prize tracks
 

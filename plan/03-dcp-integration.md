@@ -1,8 +1,53 @@
 # DCP Integration — Submit Worker + Two-Phase Compute
 
-The DCP submit worker is a **separate Node.js process** from the Next.js app. It owns the `~/.dcp/` keystores, calls `compute.for()`, listens for slice results, and POSTs them back to the Next.js app via `/api/slices/:id/result`.
+The DCP submit worker is a **separate Node.js process** from the Next.js app. It owns the `~/.dcp/` keystores, calls `compute.for()`, listens for slice results, and POSTs them back to the Next.js app via `/api/jobs/:id/slice-result`.
 
 Owner: BE3.
+
+## Setup ([dcp-submit-worker/])
+
+Sibling directory to the Next.js app, NOT inside it.
+
+```bash
+mkdir dcp-submit-worker && cd dcp-submit-worker
+npm init -y
+npm i dcp-client express dotenv
+npm i -D nodemon
+```
+
+[dcp-submit-worker/package.json] (after edits):
+```json
+{
+  "name": "strata-dcp-submit-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev":   "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "dcp-client": "latest",
+    "dotenv": "^16",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "nodemon": "^3"
+  }
+}
+```
+
+[dcp-submit-worker/.env]:
+```
+PORT=3001
+STRATA_GROUP_KEY=strata-2026
+STRATA_GROUP_SECRET=<from DCP portal — same as Next.js .env.local>
+DCP_WORKER_SHARED_SECRET=<openssl rand -hex 32 — same as Next.js .env.local>
+DCP_MODE=live          # or "fallback" — see Risk 2 in 08-risks.md
+DCP_SCHEDULER=https://scheduler.distributed.computer
+```
+
+The `~/.dcp/default.keystore` and `~/.dcp/id.keystore` files must exist on the machine running this — see [01-preflight.md §1](01-preflight.md#1-dcp-keystore--funding-be3).
 
 ## Why a separate process?
 
@@ -20,11 +65,11 @@ Next.js app (Vercel)            DCP Submit Worker (Vultr or ngrok-tunneled local
    |                                  |---compute.for() rollout job---> DCP scheduler
    |                                  |                                       |
    |                                  |<--results stream (job.on 'result')----|
-   | <--- POST /api/slices/:id/result |
+   | <--- POST /api/jobs/:id/slice-result |
    |                                  |
    | (rollouts complete trigger)      |
    |                                  |---compute.for() verifier job--> DCP scheduler
-   | <--- POST /api/slices/:id/result |
+   | <--- POST /api/jobs/:id/slice-result |
 ```
 
 ## Init ([dcp-submit-worker/src/dcp.js])
@@ -155,7 +200,7 @@ async function runRollout(jobId, jobSpec, callbackUrl) {
   });
 
   job.on('result', (ev) => {
-    fetch(`${callbackUrl}/api/slices/${jobId}/result`, {
+    fetch(`${callbackUrl}/api/jobs/${jobId}/slice-result`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -177,7 +222,7 @@ async function runRollout(jobId, jobSpec, callbackUrl) {
   });
 
   job.on('error', (ev) => {
-    fetch(`${callbackUrl}/api/slices/${jobId}/error`, {
+    fetch(`${callbackUrl}/api/jobs/${jobId}/slice-error`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sliceIndex: ev.sliceIndex, message: ev.message, phase: 'rollout' }),
@@ -256,7 +301,7 @@ async function runVerifier(jobId, jobSpec, rolloutResults, callbackUrl) {
   });
 
   job.on('result', (ev) => {
-    fetch(`${callbackUrl}/api/slices/${jobId}/result`, {
+    fetch(`${callbackUrl}/api/jobs/${jobId}/slice-result`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sliceIndex: ev.sort, phase: 'verifier', result: ev.result, computed: job.status.computed, total: job.status.total }),
@@ -297,33 +342,33 @@ function pickWinners(verifierResults) {
 module.exports = { runVerifier, pickWinners };
 ```
 
-## Next.js side — slice result handler ([app/api/slices/[id]/result/route.ts])
+## Next.js side — slice-result handler ([app/api/jobs/[id]/slice-result/route.ts])
 
 ```ts
 import { prisma } from '@/lib/db';
 import { broadcastSSE } from '@/lib/sse';
+import { requireWorkerAuth, pickDistributorForSlice, getJobPerSliceCents } from '@/lib/worker-callbacks';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  requireWorkerAuth(req);  // throws 401 if Authorization header missing/wrong — see 06-auth0.md
   const jobId = params.id;
   const { sliceIndex, phase, result, computed, total } = await req.json();
 
-  // Persist
   await prisma.slice.updateMany({
     where: { jobId, index: sliceIndex, phase },
     data: { status: 'completed', resultData: JSON.stringify(result), completedAt: new Date() },
   });
 
-  // Broadcast to Client dashboard
   broadcastSSE(`job:${jobId}`, { type: 'slice_complete', sliceIndex, phase, result, computed, total });
 
-  // Settle: credit a Distributor for this slice (round-robin among active sites for the demo)
   const distributorId = await pickDistributorForSlice(jobId);
   const sliceCents = await getJobPerSliceCents(jobId);
   const distributorCents = Math.floor(sliceCents * 0.68);
   const strataCents      = sliceCents - distributorCents;
 
+  const slot = await prisma.computeSlot.findFirst({ where: { distributorId, active: true } });
   await prisma.settlement.create({
-    data: { jobId, distributorId, slotId: 'demo-slot', grossCents: sliceCents, distributorCents, strataCents },
+    data: { jobId, distributorId, slotId: slot!.id, grossCents: sliceCents, distributorCents, strataCents },
   });
   broadcastSSE(`distributor:${distributorId}`, { type: 'earnings_tick', amountCents: distributorCents });
 
@@ -331,7 +376,64 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 }
 ```
 
-`pickDistributorForSlice` for the demo: round-robin among Distributors with active slots. In production: tie via the actual Node session that returned the slice.
+The other six callback routes (`accepted`, `status`, `done`, `failed`, `slice-error`, plus the Distributor `stream`) follow the same shape — short handlers that persist + broadcast. Stub them out as you wire each event.
+
+## Helpers ([src/lib/worker-callbacks.ts])
+
+```ts
+import { prisma } from './db';
+
+export function requireWorkerAuth(req: Request) {
+  const auth = req.headers.get('authorization');
+  if (auth !== `Bearer ${process.env.DCP_WORKER_SHARED_SECRET}`) {
+    throw new Response('Unauthorized', { status: 401 });
+  }
+}
+
+// Demo-grade: round-robin among Distributors with at least one active slot.
+// Production: thread the Node session id from DCP back through the slice metadata.
+export async function pickDistributorForSlice(jobId: string): Promise<string> {
+  const distributors = await prisma.distributor.findMany({
+    where: { slots: { some: { active: true } } },
+    select: { id: true },
+    orderBy: { id: 'asc' },
+  });
+  if (distributors.length === 0) throw new Error('no active distributors');
+  // Cheap deterministic round-robin: hash jobId + slice count
+  const sliceCount = await prisma.slice.count({ where: { jobId, status: 'completed' } });
+  return distributors[sliceCount % distributors.length].id;
+}
+
+export async function getJobPerSliceCents(jobId: string): Promise<number> {
+  const job = await prisma.job.findUnique({ where: { id: jobId }, select: { perSliceCents: true } });
+  return job?.perSliceCents ?? 12; // default 12¢/slice
+}
+```
+
+## Distributor SSE route ([app/api/distributors/[id]/stream/route.ts])
+
+```ts
+import { getSession } from '@/lib/auth';
+import { subscribeSSE } from '@/lib/sse';
+import { prisma } from '@/lib/db';
+
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  const session = await getSession();
+  if (!session) return new Response('Unauthorized', { status: 401 });
+  const distributor = await prisma.distributor.findUnique({ where: { id: params.id } });
+  if (!distributor || distributor.userId !== session.userId) return new Response('Forbidden', { status: 403 });
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const unsub = subscribeSSE(`distributor:${params.id}`, controller);
+      req.signal.addEventListener('abort', () => { unsub(); controller.close(); });
+    },
+  });
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+  });
+}
+```
 
 ## SSE infrastructure ([src/lib/sse.ts])
 
