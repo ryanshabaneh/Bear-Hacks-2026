@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>What is Strata? — Strata</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #0a0a0a;
+      color: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+    main {
+      max-width: 560px;
+      width: 100%;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 14px;
+      padding: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+    }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    p  { color: #cfcfcf; margin: 0 0 16px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    button {
+      flex: 1 1 auto;
+      background: #f5f5f5;
+      color: #0a0a0a;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary { background: transparent; color: #f5f5f5; border: 1px solid #333; }
+    button:hover { opacity: .92; }
+    a { color: #93c5fd; }
+    .status { margin-top: 16px; font-size: 13px; color: #9ca3af; min-height: 1.4em; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>This site runs Strata</h1>
+  <p>
+    Instead of showing ads, this site uses a small slice of your browser’s
+    idle compute to run AI workloads. Your tab stays responsive — Strata
+    pauses automatically when your CPU is busy, and you can pause it here
+    too. No account, no tracking, no data leaves your browser.
+  </p>
+  <p>
+    <a href="https://strata.dev" target="_blank" rel="noopener">Read the docs</a>
+    &middot;
+    <a href="https://strata.dev/privacy" target="_blank" rel="noopener">Privacy</a>
+  </p>
+
+  <div class="row">
+    <button id="pause-site">Pause on this site</button>
+    <button id="pause-all" class="secondary">Pause on all sites</button>
+  </div>
+  <div class="status" id="status"></div>
+</main>
+
+<script>
+  // Sets a __strata_paused cookie on .strata.dev. The runtime iframe checks
+  // it on load (production hardening — for hackathon demo it's informational).
+  const status = document.getElementById('status');
+  function setCookie(name, value, days) {
+    const exp = new Date(Date.now() + days * 86400_000).toUTCString();
+    document.cookie = `${name}=${value};expires=${exp};domain=.strata.dev;path=/;SameSite=Lax`;
+  }
+  document.getElementById('pause-site').addEventListener('click', () => {
+    const ref = document.referrer ? new URL(document.referrer).host : 'this site';
+    setCookie('__strata_paused_host', encodeURIComponent(ref), 90);
+    status.textContent = `Paused on ${ref}.`;
+  });
+  document.getElementById('pause-all').addEventListener('click', () => {
+    setCookie('__strata_paused', '1', 365);
+    status.textContent = 'Paused on every Strata-enabled site.';
+  });
+</script>
+</body>
+</html>

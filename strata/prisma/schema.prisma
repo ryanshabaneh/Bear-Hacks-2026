@@ -1,0 +1,115 @@
+// Strata Prisma schema — see plan/02-skeleton.md and plan/strata-architecture.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  auth0Sub    String?      @unique
+  email       String       @unique
+  role        String // "distributor" | "client" | "admin"
+  createdAt   DateTime     @default(now())
+  distributor Distributor?
+  client      Client?
+}
+
+model Distributor {
+  id                     String        @id @default(cuid())
+  userId                 String        @unique
+  user                   User          @relation(fields: [userId], references: [id])
+  displayName            String
+  stripeConnectAccountId String?
+  dcpPaymentAddress      String
+  status                 String        @default("active")
+  sites                  Site[]
+  slots                  ComputeSlot[]
+  settlements            Settlement[]
+}
+
+model Client {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id])
+  displayName      String
+  stripeCustomerId String?
+  balanceCents     Int     @default(0)
+  jobs             Job[]
+}
+
+model Site {
+  id                String        @id @default(cuid())
+  distributorId     String
+  distributor       Distributor   @relation(fields: [distributorId], references: [id])
+  domain            String
+  verificationToken String        @unique
+  verified          Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  slots             ComputeSlot[]
+}
+
+model ComputeSlot {
+  id            String      @id @default(cuid())
+  siteId        String
+  site          Site        @relation(fields: [siteId], references: [id])
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id])
+  name          String
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+}
+
+model Job {
+  id               String       @id @default(cuid())
+  clientId         String
+  client           Client       @relation(fields: [clientId], references: [id])
+  name             String
+  description      String?
+  status           String       @default("queued") // queued|rollouts|verifying|done|failed
+  workFnTemplate   String
+  inputSetConfig   String
+  inputCount       Int
+  nRollouts        Int          @default(8)
+  useVerifier      Boolean      @default(true)
+  budgetCents      Int
+  perSliceCents    Int
+  dcpJobId         String?
+  dcpVerifierJobId String?
+  pcgJoinKey       String
+  pcgJoinSecret    String
+  createdAt        DateTime     @default(now())
+  slices           Slice[]
+  settlements      Settlement[]
+}
+
+model Slice {
+  id          String    @id @default(cuid())
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id])
+  index       Int
+  phase       String // "rollout" | "verifier"
+  status      String    @default("pending") // pending|claimed|completed|failed
+  nodeSession String?
+  resultHash  String?
+  resultData  String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+}
+
+model Settlement {
+  id               String      @id @default(cuid())
+  jobId            String
+  job              Job         @relation(fields: [jobId], references: [id])
+  distributorId    String
+  distributor      Distributor @relation(fields: [distributorId], references: [id])
+  slotId           String
+  grossCents       Int
+  distributorCents Int
+  strataCents      Int
+  createdAt        DateTime    @default(now())
+}
