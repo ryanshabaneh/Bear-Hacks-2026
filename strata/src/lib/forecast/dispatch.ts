@@ -319,15 +319,31 @@ async function bumpSimulatedNode(nodeKey: string) {
 async function runHardcodeReplay(forecastId: string, _distributorIds: string[]) {
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
-    include: { slices: { orderBy: [{ chunkIndex: "asc" }, { attemptNumber: "asc" }] } },
   });
   if (!forecast) return;
 
-  const uniqueChunks = Array.from(
-    new Map(forecast.slices.map((s) => [s.chunkIndex, s])).values(),
-  );
+  const audioHours = forecast.audioHoursTotal && forecast.audioHoursTotal > 0
+    ? forecast.audioHoursTotal
+    : 0;
+  const computedFromAudio = Math.max(1, Math.ceil((audioHours * 3600) / 30));
+  const total = audioHours > 0 ? Math.min(computedFromAudio, HARDCODE_LINES.length) : HARDCODE_LINES.length;
 
-  const total = uniqueChunks.length;
+  await prisma.slice.deleteMany({ where: { forecastId } });
+  const uniqueChunks = await Promise.all(
+    Array.from({ length: total }, (_, idx) =>
+      prisma.slice.create({
+        data: {
+          forecastId,
+          chunkIndex: idx,
+          timestampStart: idx * 30,
+          timestampEnd: idx * 30 + 30,
+          inputUrl: forecast.inputManifestUrl,
+          attemptNumber: 1,
+          status: "issued",
+        },
+      }),
+    ),
+  );
 
   await prisma.forecast.update({
     where: { id: forecastId },

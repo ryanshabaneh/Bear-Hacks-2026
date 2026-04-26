@@ -35,6 +35,13 @@ export type DistributorStats = {
   earningsMonthCents: number;
 };
 
+const HARDCODE_DEMO_BASELINE = {
+  audioHoursMonth: 4.2,
+  forecastsContributed: 12,
+  earningsMonthCents: 4280,
+  earningsLifetimeCents: 18750,
+};
+
 export async function getDistributorStats(
   distributorId: string,
 ): Promise<DistributorStats> {
@@ -66,10 +73,19 @@ export async function getDistributorStats(
     0,
   );
 
+  const hardcodeMode = process.env.DCP_MODE === "hardcode";
+  const baseline = hardcodeMode ? HARDCODE_DEMO_BASELINE : null;
+
   return {
-    audioHoursMonth: Number(audioHoursMonth.toFixed(1)),
-    forecastsContributed: monthSettlements.length,
-    earningsLifetimeCents: lifetimeSettlements._sum.distributorCents ?? 0,
-    earningsMonthCents,
+    audioHoursMonth: Number(
+      (audioHoursMonth + (baseline?.audioHoursMonth ?? 0)).toFixed(1),
+    ),
+    forecastsContributed:
+      monthSettlements.length + (baseline?.forecastsContributed ?? 0),
+    earningsLifetimeCents:
+      (lifetimeSettlements._sum.distributorCents ?? 0) +
+      (baseline?.earningsLifetimeCents ?? 0),
+    earningsMonthCents:
+      earningsMonthCents + (baseline?.earningsMonthCents ?? 0),
   };
 }
