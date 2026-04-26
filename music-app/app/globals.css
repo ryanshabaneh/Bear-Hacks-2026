@@ -1458,6 +1458,110 @@ button.ghost.sm { padding: 8px 12px; font-size: 10px; }
 }
 
 /* ================================================================== */
+/* Strata embed chip — fixed bottom-right, the visible production       */
+/* artifact when compute mode is on. Mirrors embed/strata.js style      */
+/* but pixel-themed.                                                    */
+/* ================================================================== */
+.strata-chip {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 2147483647;       /* always on top */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--ink);
+  color: var(--label-cream);
+  font-family: 'Silkscreen', 'VT323', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  border: 3px solid var(--baseboard);
+  box-shadow:
+    4px 4px 0 var(--wall-shadow),
+    inset 0 0 0 2px var(--plastic-light);
+  max-width: 90vw;
+}
+.strata-chip-brand {
+  color: var(--neon-pink);
+  text-shadow:
+    0 0 4px var(--neon-pink),
+    0 0 8px rgba(255, 142, 182, 0.6);
+  padding-right: 10px;
+  border-right: 2px solid var(--plastic-light);
+}
+.strata-chip-text {
+  color: var(--label-cream);
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.strata-chip[data-state="running"] .strata-chip-text::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--neon-green);
+  border: 1px solid var(--baseboard);
+  box-shadow: 0 0 4px var(--neon-green);
+  animation: chipPulse 0.6s steps(2) infinite;
+}
+.strata-chip[data-state="paused"] {
+  background: #3b2a05;
+}
+.strata-chip[data-state="paused"] .strata-chip-text {
+  color: var(--neon-yellow);
+}
+.strata-chip[data-state="paused"] .strata-chip-text::before {
+  content: "❚❚";
+  font-family: 'Silkscreen', monospace;
+  color: var(--neon-yellow);
+  margin-right: 2px;
+}
+.strata-chip-pause,
+.strata-chip-info {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-cool, #94b0c2);
+  font-family: 'Silkscreen', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  text-decoration: underline;
+  padding: 0;
+  letter-spacing: 0;
+}
+.strata-chip-pause:hover,
+.strata-chip-info:hover {
+  color: var(--neon-cyan);
+}
+@keyframes chipPulse {
+  0%, 49% { opacity: 1; transform: scale(1); }
+  50%, 100% { opacity: 0.55; transform: scale(0.85); }
+}
+/* Mobile: stack the brand on top, shrink */
+@media (max-width: 640px) {
+  .strata-chip {
+    flex-wrap: wrap;
+    bottom: 8px;
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    justify-content: flex-start;
+  }
+  .strata-chip-brand {
+    border-right: none;
+    border-bottom: 2px solid var(--plastic-light);
+    padding-right: 0;
+    padding-bottom: 4px;
+    width: 100%;
+  }
+}
+
+/* ================================================================== */
 /* Settings page                                                       */
 /* ================================================================== */
 .toggle { display: flex; gap: 14px; flex-wrap: wrap; }

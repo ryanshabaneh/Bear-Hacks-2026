@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Silkscreen, VT323 } from "next/font/google";
+import { StrataChip } from "./_components/StrataChip";
 import "./globals.css";
 
 const silkscreen = Silkscreen({
@@ -81,6 +82,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </nav>
           {children}
         </div>
+
+        {/* Strata "embed" chip — only renders when compute mode is on. */}
+        <StrataChip />
       </body>
     </html>
   );
