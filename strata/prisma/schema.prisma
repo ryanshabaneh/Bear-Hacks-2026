@@ -92,6 +92,8 @@ model Forecast {
   workFunctionVersion String       @default("strata-whisper-v1")
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
+  castedAt            DateTime?
+  scheduledAt         DateTime?
   frontOpenedAt       DateTime?
   sealedAt            DateTime?
   slices              Slice[]
@@ -100,6 +102,7 @@ model Forecast {
 
   @@index([clientId, status])
   @@index([clientId])
+  @@index([status, castedAt])
 }
 
 model Slice {
