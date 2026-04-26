@@ -5,90 +5,50 @@ import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Stepper } from "@/components/ui/Stepper";
 import { Button } from "@/components/ui/Button";
+import { TutorialImage } from "@/components/ui/TutorialImage";
 
 type Step = {
-  label: string;
+  windowTitle: string;
   title: string;
   body: React.ReactNode;
+  imageSrc?: string;
+  imageAlt: string;
 };
 
 const STEPS: Step[] = [
   {
-    label: "Welcome",
+    windowTitle: "welcome.exe",
     title: "Welcome to Strata.",
     body: (
-      <>
-        <p>
-          Strata is a compute marketplace. You post a Forecast. The Sky catches
-          it. Results return to your Catchment.
-        </p>
-        <p className="opacity-70">This walkthrough takes about ninety seconds.</p>
-      </>
+      <p>
+        Post a Forecast. The Sky catches it. Your Catchment lands ready to read.
+        Eighty to ninety-five percent under cloud rates.
+      </p>
     ),
+    imageAlt: "Strata sky illustration",
   },
   {
-    label: "How a Forecast runs",
+    windowTitle: "how-it-works.exe",
     title: "How a Forecast runs.",
     body: (
-      <>
-        <p>
-          When you cast a Forecast, Strata splits the input into slices. Audio
-          becomes thirty-second chunks. Each slice is dispatched to a Node — one
-          device contributing compute to the Sky.
-        </p>
-        <p>
-          The Node processes the slice in a sandboxed browser tab and returns
-          the result. Strata reassembles the pieces and hands you the
-          Catchment.
-        </p>
-      </>
+      <p>
+        Your audio splits into thirty-second slices. Each slice runs on a
+        sandboxed Node and returns. Strata reassembles the pieces into one
+        Catchment.
+      </p>
     ),
+    imageAlt: "Forecast flow diagram",
   },
   {
-    label: "Where the Sky comes from",
-    title: "Where the Sky comes from.",
-    body: (
-      <>
-        <p>
-          Nodes are individuals, schools, and partner organizations who run a
-          Strata-compatible browser tab in exchange for compensation. They opt
-          into the categories of work they accept.
-        </p>
-        <p>
-          Each Node sees only the slice it was given, never your full Forecast.
-          Slice content is wiped from Node memory when the slice completes.
-        </p>
-      </>
-    ),
-  },
-  {
-    label: "What you pay",
-    title: "What you pay.",
-    body: (
-      <>
-        <p>
-          You're charged per CPU-second of compute used. For most Forecasts,
-          the total runs eighty to ninety-five percent below the same workload
-          on AWS, Google, or Azure.
-        </p>
-        <p className="opacity-70">
-          The savings come from using compute that was already running.
-        </p>
-      </>
-    ),
-  },
-  {
-    label: "You're in",
+    windowTitle: "youre-in.exe",
     title: "You're in.",
     body: (
-      <>
-        <p>
-          You start with five dollars in free credits. Try a sample Forecast,
-          or upload your own audio. There's no plan to choose.
-        </p>
-        <p className="opacity-70">Open the dashboard whenever you're ready.</p>
-      </>
+      <p>
+        Five dollars in free credits. No plan to choose. Try a sample Forecast
+        or upload your own audio.
+      </p>
     ),
+    imageAlt: "Open dashboard preview",
   },
 ];
 
@@ -118,27 +78,39 @@ export function ClientOnboardingModal() {
   }
 
   return (
-    <Modal open={open} ariaLabel="Strata onboarding" closeOnBackdrop={false}>
-      <div className="flex flex-col gap-2">
-        <Stepper total={STEPS.length} current={stepIdx + 1} />
-      </div>
+    <Modal
+      open={open}
+      ariaLabel="Strata onboarding"
+      closeOnBackdrop={false}
+      title={step.windowTitle}
+      titleBarTone="pink"
+      size="md"
+    >
+      <div className="flex flex-col gap-4">
+        <Stepper variant="y2k" total={STEPS.length} current={stepIdx + 1} />
 
-      <div className="flex flex-col gap-3">
-        <h2 className="cirrus-text-h1">{step.title}</h2>
-        <div className="cirrus-text-body flex flex-col gap-3">{step.body}</div>
-      </div>
+        <TutorialImage src={step.imageSrc} alt={step.imageAlt} />
 
-      <div className="flex items-center justify-between mt-3">
-        <Button variant="ghost" size="sm" onClick={back} disabled={stepIdx === 0}>
-          ← Back
-        </Button>
-        <Button onClick={next} disabled={pending} size="md">
-          {pending
-            ? "Opening…"
-            : isLast
-              ? "Open the dashboard →"
-              : "Next →"}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <h2 className="y2k-mono" style={{ fontSize: 18, fontWeight: 600, color: "var(--y2k-border)" }}>
+            {step.title}
+          </h2>
+          <div
+            className="y2k-mono"
+            style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--y2k-border)" }}
+          >
+            {step.body}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-1">
+          <Button variant="y2k" onClick={back} disabled={stepIdx === 0}>
+            ← back
+          </Button>
+          <Button variant="y2k-primary" onClick={next} disabled={pending}>
+            {pending ? "opening..." : isLast ? "open dashboard" : "next →"}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

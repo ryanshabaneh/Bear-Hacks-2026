@@ -5,52 +5,49 @@ import { useState, useTransition } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Stepper } from "@/components/ui/Stepper";
 import { Button } from "@/components/ui/Button";
+import { TutorialImage } from "@/components/ui/TutorialImage";
 
 type Step = {
+  windowTitle: string;
   title: string;
   body: React.ReactNode;
+  imageSrc?: string;
+  imageAlt: string;
 };
 
 const STEPS: Step[] = [
   {
+    windowTitle: "join-the-sky.exe",
     title: "Join the Sky.",
     body: (
-      <>
-        <p>
-          Lend cycles your browser is doing nothing with. Strata pays for every
-          slice your Node runs. You opt into the categories of Forecast you'll
-          accept.
-        </p>
-        <p className="opacity-70">You can leave the Sky at any time.</p>
-      </>
+      <p>
+        Lend cycles your browser is doing nothing with. Strata pays per slice
+        your Node runs. Leave any time.
+      </p>
     ),
+    imageAlt: "Sky of nodes illustration",
   },
   {
+    windowTitle: "how-earning-works.exe",
     title: "How earning works.",
     body: (
-      <>
-        <p>
-          Nodes earn per slice processed. The rate depends on the Forecast type
-          and cycles consumed. Earnings show in your dashboard in real time.
-        </p>
-        <p className="opacity-70">Payouts run weekly above a one-dollar threshold.</p>
-      </>
+      <p>
+        Nodes earn per slice processed. Earnings show in your dashboard live.
+        Payouts run weekly above one dollar.
+      </p>
     ),
+    imageAlt: "Earnings flow illustration",
   },
   {
+    windowTitle: "whats-safe.exe",
     title: "What's safe.",
     body: (
-      <>
-        <p>
-          Each Node only sees the slice it was assigned, never the source
-          Forecast. Slice content is wiped from memory on completion.
-        </p>
-        <p>
-          Nodes run in sandboxed browser tabs and cannot reach the rest of your
-          machine. You can stop contributing at any time without penalty.
-        </p>
-      </>
+      <p>
+        Each Node sees only the slice it was assigned. Slice content wipes on
+        completion. Sandboxed in a browser tab. Stop any time.
+      </p>
     ),
+    imageAlt: "Sandboxed node illustration",
   },
 ];
 
@@ -80,25 +77,39 @@ export function DistributorOnboardingModal() {
   }
 
   return (
-    <Modal open={open} ariaLabel="Strata distributor onboarding" closeOnBackdrop={false}>
-      <Stepper total={STEPS.length} current={stepIdx + 1} />
+    <Modal
+      open={open}
+      ariaLabel="Strata distributor onboarding"
+      closeOnBackdrop={false}
+      title={step.windowTitle}
+      titleBarTone="lavender"
+      size="md"
+    >
+      <div className="flex flex-col gap-4">
+        <Stepper variant="y2k" total={STEPS.length} current={stepIdx + 1} />
 
-      <div className="flex flex-col gap-3">
-        <h2 className="cirrus-text-h1">{step.title}</h2>
-        <div className="cirrus-text-body flex flex-col gap-3">{step.body}</div>
-      </div>
+        <TutorialImage src={step.imageSrc} alt={step.imageAlt} />
 
-      <div className="flex items-center justify-between mt-3">
-        <Button variant="ghost" size="sm" onClick={back} disabled={stepIdx === 0}>
-          ← Back
-        </Button>
-        <Button onClick={next} disabled={pending} size="md">
-          {pending
-            ? "Opening…"
-            : isLast
-              ? "Open the dashboard →"
-              : "Next →"}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <h2 className="y2k-mono" style={{ fontSize: 18, fontWeight: 600, color: "var(--y2k-border)" }}>
+            {step.title}
+          </h2>
+          <div
+            className="y2k-mono"
+            style={{ fontSize: 12.5, lineHeight: 1.55, color: "var(--y2k-border)" }}
+          >
+            {step.body}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-1">
+          <Button variant="y2k" onClick={back} disabled={stepIdx === 0}>
+            ← back
+          </Button>
+          <Button variant="y2k-primary" onClick={next} disabled={pending}>
+            {pending ? "opening..." : isLast ? "open dashboard" : "next →"}
+          </Button>
+        </div>
       </div>
     </Modal>
   );
