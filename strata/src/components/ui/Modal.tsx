@@ -2,14 +2,29 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils/cn";
+import { Window } from "@/components/ui/Window";
+
+type ModalSize = "sm" | "md" | "lg";
+type TitleBarTone = "lavender" | "pink" | "cream";
 
 type ModalProps = {
   open: boolean;
   onClose?: () => void;
   closeOnBackdrop?: boolean;
   ariaLabel: string;
+  title?: string;
+  titleBarTone?: TitleBarTone;
+  size?: ModalSize;
+  sparkles?: boolean;
   className?: string;
+  bodyClassName?: string;
   children: React.ReactNode;
+};
+
+const SIZE_CLASS: Record<ModalSize, string> = {
+  sm: "max-w-[380px]",
+  md: "max-w-[520px]",
+  lg: "max-w-[720px]",
 };
 
 export function Modal({
@@ -17,7 +32,12 @@ export function Modal({
   onClose,
   closeOnBackdrop = false,
   ariaLabel,
+  title,
+  titleBarTone = "lavender",
+  size = "md",
+  sparkles = true,
   className,
+  bodyClassName,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -54,22 +74,18 @@ export function Modal({
     >
       <div
         aria-hidden="true"
-        className="absolute inset-0 backdrop-blur-md"
-        style={{
-          background:
-            "radial-gradient(ellipse at top, rgba(255, 200, 170, 0.30), transparent 60%), rgba(13, 24, 40, 0.45)",
-        }}
+        className="absolute inset-0"
+        style={{ background: "rgba(170, 194, 235, 0.78)" }}
       />
-      <div
-        ref={dialogRef}
-        className={cn(
-          "relative cirrus-card w-full max-w-[560px] p-7 flex flex-col gap-5",
-          "shadow-[0_24px_80px_-12px_rgba(13,24,40,0.45)]",
-          className,
-        )}
-        style={{ borderRadius: "var(--radius-xl)" }}
-      >
-        {children}
+      <div ref={dialogRef} className={cn("relative w-full", SIZE_CLASS[size], className)}>
+        <Window
+          title={title}
+          titleBarTone={titleBarTone}
+          sparkles={sparkles}
+          bodyClassName={bodyClassName}
+        >
+          {children}
+        </Window>
       </div>
     </div>
   );
