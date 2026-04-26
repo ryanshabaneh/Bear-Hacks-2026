@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { getDistributorBalance } from "@/lib/payments/balance";
+import { prisma } from "@/lib/db/prisma";
+import { getDistributorStats } from "@/lib/payments/balance";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
 import { UnitLabel } from "@/components/cirrus/primitives/UnitLabel";
 import { MonoNumber } from "@/components/cirrus/primitives/MonoNumber";
@@ -14,12 +15,27 @@ import { AttestationReceipt } from "@/components/cirrus/signature/AttestationRec
 export default async function DistributorDashboard() {
   const session = await getSession();
   if (!session) redirect("/auth/login?account_type=distributor");
-  if (session.user.role !== "distributor") redirect("/client");
+  if (session.user.role !== "distributor" || !session.user.distributorId) {
+    redirect("/client");
+  }
 
-  const balance = session.user.distributorId
-    ? await getDistributorBalance(session.user.distributorId)
-    : { todayCents: 0, lifetimeCents: 0 };
-  const todayUsd = (balance.todayCents / 100).toFixed(2);
+  const [distributor, stats, recentAttestations] = await Promise.all([
+    prisma.distributor.findUnique({
+      where: { id: session.user.distributorId },
+    }),
+    getDistributorStats(session.user.distributorId),
+    prisma.attestation.findMany({
+      take: 3,
+      orderBy: { id: "desc" },
+      include: { slice: true },
+    }),
+  ]);
+
+  const displayName = distributor?.displayName ?? "Distributor";
+  const isSlopify = displayName.toLowerCase() === "slopify";
+  const networkLabel = isSlopify ? "Slopify-PCN" : "Public Sky";
+  const todayUsd = (stats.earningsMonthCents / 100).toFixed(2);
+  const skyDensity = Math.min(99, 60 + (stats.forecastsContributed % 40));
 
   return (
     <AppShell role="distributor" email={session.user.email}>
@@ -29,24 +45,43 @@ export default async function DistributorDashboard() {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="cirrus-card p-4 flex flex-col gap-2">
             <UnitLabel>Audio-hours served · MO</UnitLabel>
-            <MonoNumber className="cirrus-text-display">1,247</MonoNumber>
-          </div>
-          <div className="cirrus-card p-4 flex flex-col gap-2">
-            <UnitLabel>Sky density · 1HR rolling</UnitLabel>
-            <MonoNumber className="cirrus-text-display" style={{ color: "var(--color-coral-500)" }}>
-              94%
+            <MonoNumber className="cirrus-text-display">
+              {stats.audioHoursMonth.toFixed(1)}
             </MonoNumber>
           </div>
           <div className="cirrus-card p-4 flex flex-col gap-2">
-            <UnitLabel>Earnings · day · USD</UnitLabel>
+            <UnitLabel>Sky density · 1HR rolling</UnitLabel>
+            <MonoNumber
+              className="cirrus-text-display"
+              style={{ color: "var(--color-coral-500)" }}
+            >
+              {skyDensity}%
+            </MonoNumber>
+          </div>
+          <div className="cirrus-card p-4 flex flex-col gap-2">
+            <UnitLabel>Earnings · MO · USD</UnitLabel>
             <MonoNumber className="cirrus-text-display">${todayUsd}</MonoNumber>
           </div>
+        </section>
+
+        <section className="cirrus-card p-4 flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <UnitLabel>Compute network</UnitLabel>
+            <MonoNumber className="cirrus-text-h2">{networkLabel}</MonoNumber>
+          </div>
+          <span
+            className={
+              isSlopify ? "cirrus-pill cirrus-pill-coral" : "cirrus-pill cirrus-pill-neutral"
+            }
+          >
+            {isSlopify ? "Private compute group · v1 attribution" : "Public network"}
+          </span>
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4">
           <FrontOpening
             forecastId="j3f"
-            title="Lighthouse Studio · 4 episodes"
+            title={`${displayName} · live transcription`}
             status="active"
             cyclesDispatching={120}
             nodes={47}
@@ -71,16 +106,19 @@ export default async function DistributorDashboard() {
               { chunkIndex: 2, timestampStart: 60, timestampEnd: 90, arrivedAt: Date.now() - 30_000 },
               { chunkIndex: 3, timestampStart: 90, timestampEnd: 120, arrivedAt: Date.now() - 800 },
             ]}
-            latestLine={{ timestamp: "00:01:30", text: "and that's where we picked up the trail of–" }}
+            latestLine={{
+              timestamp: "00:01:30",
+              text: "and that's where we picked up the trail of–",
+            }}
           />
           <CapabilityBloom
             totalNodes={47}
             capabilities={{
-              WEBGPU: 31,
-              AUDIO: 47,
-              HEAP_1GB: 38,
-              WASM: 16,
-              EN_OK: 47,
+              WASM_SIMD: 47,
+              AUDIO_PCM: 47,
+              ENGLISH_OK: 47,
+              ONNX_INT8: 47,
+              KV_CACHE: 47,
               F32: 47,
             }}
           />
@@ -89,43 +127,21 @@ export default async function DistributorDashboard() {
         <section className="flex flex-col gap-2">
           <UnitLabel>Recent attestations</UnitLabel>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <AttestationReceipt
-              attestation={{
-                sliceTimestampStart: 0,
-                sliceTimestampEnd: 30,
-                outputHash: "a3f8d2c891c2",
-                nodeRegion: "NA",
-                cyclesConsumed: 14,
-                quorum: { k: 2, agreed: true },
-                oracleSampled: false,
-                schedulerSig: "valid",
-              }}
-            />
-            <AttestationReceipt
-              attestation={{
-                sliceTimestampStart: 30,
-                sliceTimestampEnd: 60,
-                outputHash: "b8e4f9a317d6",
-                nodeRegion: "EU",
-                cyclesConsumed: 13,
-                quorum: { k: 2, agreed: true },
-                oracleSampled: true,
-                oracleAgreed: true,
-                schedulerSig: "valid",
-              }}
-            />
-            <AttestationReceipt
-              attestation={{
-                sliceTimestampStart: 60,
-                sliceTimestampEnd: 90,
-                outputHash: "c2a1d4f6e802",
-                nodeRegion: "NA",
-                cyclesConsumed: 15,
-                quorum: { k: 2, agreed: true },
-                oracleSampled: false,
-                schedulerSig: "valid",
-              }}
-            />
+            {recentAttestations.map((a) => (
+              <AttestationReceipt
+                key={a.id}
+                attestation={{
+                  sliceTimestampStart: a.slice.timestampStart,
+                  sliceTimestampEnd: a.slice.timestampEnd,
+                  outputHash: a.outputHash.slice(0, 12),
+                  nodeRegion: a.nodeRegionGlyph,
+                  cyclesConsumed: a.slice.cyclesConsumed ?? 0,
+                  quorum: { k: 2, agreed: true },
+                  oracleSampled: false,
+                  schedulerSig: "valid",
+                }}
+              />
+            ))}
           </div>
         </section>
       </div>

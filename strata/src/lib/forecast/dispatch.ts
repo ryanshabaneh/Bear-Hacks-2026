@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
-import { publishForecast, publishDistributor } from "@/lib/sse/bus";
+import { publishForecast } from "@/lib/sse/bus";
+import { runCachedReplay } from "./cached-replay";
 
 const REGIONS = ["NA-east", "NA-west", "EU", "APAC"] as const;
 const DEMO_LINES = [
@@ -15,16 +16,40 @@ const DEMO_LINES = [
 
 export type DispatchOptions = {
   forecastId: string;
+  fixtureName?: string;
   distributorIds?: string[];
 };
 
-export async function dispatchForecast({ forecastId, distributorIds = [] }: DispatchOptions): Promise<void> {
-  const workerUrl = process.env.DCP_SUBMIT_WORKER_URL;
-  const sharedSecret = process.env.DCP_WORKER_SHARED_SECRET;
-  const mode = (process.env.DCP_MODE ?? "demo").toLowerCase();
+type DispatchMode = "cached" | "live" | "demo";
 
-  if (mode === "live" && workerUrl && sharedSecret) {
-    await dispatchToWorker(forecastId, workerUrl, sharedSecret);
+function readMode(): DispatchMode {
+  const raw = (process.env.DCP_MODE ?? "live").toLowerCase();
+  if (raw === "cached") return "cached";
+  if (raw === "demo") return "demo";
+  return "live";
+}
+
+export async function dispatchForecast({
+  forecastId,
+  fixtureName,
+  distributorIds = [],
+}: DispatchOptions): Promise<void> {
+  const mode = readMode();
+
+  if (mode === "live") {
+    void runLive(forecastId).catch((err) => {
+      console.error(`[dispatch] live run failed for ${forecastId}:`, err);
+      void recordFailure(forecastId, err);
+    });
+    return;
+  }
+
+  if (mode === "cached") {
+    const name = fixtureName ?? process.env.DCP_DEMO_FIXTURE ?? "slopify-demo";
+    void runCachedReplay(forecastId, name).catch((err) => {
+      console.error(`[dispatch] cached replay failed for ${forecastId}:`, err);
+      void recordFailure(forecastId, err);
+    });
     return;
   }
 
@@ -33,47 +58,158 @@ export async function dispatchForecast({ forecastId, distributorIds = [] }: Disp
   });
 }
 
-async function dispatchToWorker(forecastId: string, workerUrl: string, sharedSecret: string) {
+async function runLive(forecastId: string) {
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
-    include: { slices: true, client: true },
+    include: { slices: { orderBy: [{ chunkIndex: "asc" }] } },
   });
   if (!forecast) throw new Error(`forecast ${forecastId} not found`);
 
-  const callbackUrl = `${process.env.APP_BASE_URL?.split(",")[0] ?? "http://localhost:3000"}/api/scheduler/slice-callback`;
+  const audioPath = process.env.DCP_LIVE_AUDIO_PATH;
+  if (!audioPath) {
+    throw new Error(
+      "DCP_LIVE_AUDIO_PATH not set; live mode needs a real audio file path on disk",
+    );
+  }
 
-  const res = await fetch(`${workerUrl.replace(/\/$/, "")}/submit`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${sharedSecret}`,
-    },
-    body: JSON.stringify({
-      forecastId,
-      forecastSpec: {
-        audioHoursTotal: forecast.audioHoursTotal,
-        languageScope: forecast.languageScope,
-        outputFormats: JSON.parse(forecast.outputFormats),
-        budgetCents: forecast.budgetCents,
-      },
-      slices: forecast.slices.map((s) => ({
-        chunkIndex: s.chunkIndex,
-        timestampStart: s.timestampStart,
-        timestampEnd: s.timestampEnd,
-        inputUrl: s.inputUrl,
-        attemptNumber: s.attemptNumber,
-      })),
-      callbackUrl,
-    }),
+  const lib = await import(/* webpackIgnore: true */ "../../../../dcp/lib.mjs");
+
+  await prisma.forecast.update({
+    where: { id: forecastId },
+    data: { status: "active", frontOpenedAt: new Date() },
   });
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`worker /submit failed: ${res.status} ${body}`);
+  const samples = await lib.decodeAudio(audioPath);
+  const chunks = lib.chunkAudio(samples);
+  const total = chunks.length;
+
+  await prisma.slice.deleteMany({ where: { forecastId } });
+  const newSlices = await Promise.all(
+    Array.from({ length: total }, (_, idx) =>
+      prisma.slice.create({
+        data: {
+          forecastId,
+          chunkIndex: idx,
+          timestampStart: idx * 30,
+          timestampEnd: idx * 30 + 30,
+          inputUrl: audioPath,
+          attemptNumber: 1,
+          status: "issued",
+        },
+      }),
+    ),
+  );
+
+  const sliceByIdx = new Map<number, (typeof newSlices)[number]>();
+  for (const s of newSlices) sliceByIdx.set(s.chunkIndex, s);
+
+  publishForecast(forecastId, {
+    type: "front:opening",
+    forecastId,
+    total,
+    ts: Date.now(),
+  });
+
+  const result = (await lib.transcribeChunks(chunks, {
+    bidPrice: Number(process.env.DCP_BID_PRICE ?? 1),
+    returnTimings: true,
+  })) as {
+    texts: string[];
+    dispatchedAt: number;
+    events: Array<{
+      idx: number;
+      stamps: { workerStart: number; workerEnd: number } & Record<string, number>;
+    }>;
+  };
+
+  for (const event of result.events) {
+    const idx = event.idx as number;
+    const slice = sliceByIdx.get(idx);
+    if (!slice) continue;
+    const text = result.texts[idx] ?? "";
+    const region = REGIONS[idx % REGIONS.length];
+    const cyclesConsumed = Math.max(
+      8,
+      Math.round((event.stamps.workerEnd - event.stamps.workerStart) / 1800),
+    );
+    const outputHash = randomHex(12);
+    const nodePubkey = `node_${randomHex(8)}`;
+
+    await prisma.slice.update({
+      where: { id: slice.id },
+      data: {
+        status: "completed",
+        nodePubkey,
+        outputHash,
+        outputText: text,
+        cyclesConsumed,
+        completedAt: new Date(),
+      },
+    });
+
+    await prisma.attestation.create({
+      data: {
+        sliceId: slice.id,
+        nodePubkey,
+        nodeRegionGlyph: region,
+        outputHash,
+        schedulerSig: "live-dcp-valid",
+      },
+    });
+
+    await prisma.forecast.update({
+      where: { id: forecastId },
+      data: { budgetCyclesUsed: { increment: cyclesConsumed } },
+    });
+
+    publishForecast(forecastId, {
+      type: "slice:arrived",
+      forecastId,
+      chunkIndex: slice.chunkIndex,
+      timestampStart: slice.timestampStart,
+      timestampEnd: slice.timestampEnd,
+      outputHash,
+      nodeRegion: region,
+      cyclesConsumed,
+      text,
+      ts: Date.now(),
+    });
   }
+
+  const audioHoursSealed = Number((samples.length / 16000 / 3600).toFixed(3));
+  await prisma.forecast.update({
+    where: { id: forecastId },
+    data: {
+      status: "sealed",
+      sealedAt: new Date(),
+      audioHoursTotal: audioHoursSealed,
+    },
+  });
+
+  await prisma.catchment.create({
+    data: {
+      forecastId,
+      bundleUrl: `https://strata.local/catchments/${forecastId}.zip`,
+      audioHoursSealed,
+      slicesCompleted: total,
+      slicesTotal: total,
+    },
+  });
+
+  publishForecast(forecastId, {
+    type: "catchment:sealed",
+    forecastId,
+    bundleUrl: `https://strata.local/catchments/${forecastId}.zip`,
+    slicesCompleted: total,
+    slicesTotal: total,
+    audioHoursSealed,
+    ts: Date.now(),
+  });
+
+  await createDemoSettlement(forecastId, forecast.budgetCents);
 }
 
-async function runDemoReplay(forecastId: string, distributorIds: string[]) {
+async function runDemoReplay(forecastId: string, _distributorIds: string[]) {
   const forecast = await prisma.forecast.findUnique({
     where: { id: forecastId },
     include: { slices: { orderBy: [{ chunkIndex: "asc" }, { attemptNumber: "asc" }] } },
@@ -147,16 +283,6 @@ async function runDemoReplay(forecastId: string, distributorIds: string[]) {
       text,
       ts: Date.now(),
     });
-
-    for (const distributorId of distributorIds) {
-      publishDistributor(distributorId, {
-        type: "slice:landed",
-        distributorId,
-        outcome: "landed",
-        region,
-        ts: Date.now(),
-      });
-    }
   }
 
   const audioHoursSealed = forecast.audioHoursTotal;
@@ -168,24 +294,24 @@ async function runDemoReplay(forecastId: string, distributorIds: string[]) {
   await prisma.catchment.create({
     data: {
       forecastId,
-      bundleUrl: `https://cdn.strata.app/catchments/${forecastId}.zip`,
+      bundleUrl: `https://strata.local/catchments/${forecastId}.zip`,
       audioHoursSealed,
       slicesCompleted: total,
       slicesTotal: total,
     },
   });
 
-  await createDemoSettlement(forecastId, forecast.budgetCents);
-
   publishForecast(forecastId, {
     type: "catchment:sealed",
     forecastId,
-    bundleUrl: `https://cdn.strata.app/catchments/${forecastId}.zip`,
+    bundleUrl: `https://strata.local/catchments/${forecastId}.zip`,
     slicesCompleted: total,
     slicesTotal: total,
     audioHoursSealed,
     ts: Date.now(),
   });
+
+  await createDemoSettlement(forecastId, forecast.budgetCents);
 }
 
 async function createDemoSettlement(forecastId: string, grossCents: number) {
@@ -207,6 +333,20 @@ async function createDemoSettlement(forecastId: string, grossCents: number) {
       distributorCents,
       strataCents,
     },
+  });
+}
+
+async function recordFailure(forecastId: string, err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  await prisma.forecast.update({
+    where: { id: forecastId },
+    data: { status: "failed" },
+  });
+  publishForecast(forecastId, {
+    type: "forecast:failed",
+    forecastId,
+    reason: message,
+    ts: Date.now(),
   });
 }
 

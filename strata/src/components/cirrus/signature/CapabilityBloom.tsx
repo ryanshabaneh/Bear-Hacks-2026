@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils/cn";
 
 type Capabilities = {
-  WEBGPU: number;
-  AUDIO: number;
-  HEAP_1GB: number;
-  WASM: number;
-  EN_OK: number;
+  WASM_SIMD: number;
+  AUDIO_PCM: number;
+  ENGLISH_OK: number;
+  ONNX_INT8: number;
+  KV_CACHE: number;
   F32: number;
 };
 
@@ -58,11 +58,11 @@ export function CapabilityBloom({ totalNodes, capabilities, className }: Props) 
               <line x1="-14" y1="-8" x2="-40" y2="-23" />
             </g>
 
-            <BloomPetal cx={0} cy={-50} rx={24} ry={10} fill="#f4885a" opacity={ratio(capabilities.WEBGPU)} label={`WEBGPU ${capabilities.WEBGPU}`} ty={-48} />
-            <BloomPetal cx={44} cy={-25} rx={22} ry={9} fill="#98b898" opacity={ratio(capabilities.AUDIO)} label={`AUDIO ${capabilities.AUDIO}`} ty={-23} />
-            <BloomPetal cx={44} cy={25} rx={22} ry={9} fill="#e8c878" opacity={ratio(capabilities.HEAP_1GB)} label={`≥1GB ${capabilities.HEAP_1GB}`} ty={27} />
-            <BloomPetal cx={0} cy={50} rx={24} ry={10} fill="#b8c8d8" opacity={ratio(capabilities.WASM)} label={`WASM ${capabilities.WASM}`} ty={52} />
-            <BloomPetal cx={-44} cy={25} rx={22} ry={9} fill="#c8d4e0" opacity={ratio(capabilities.EN_OK)} label={`EN-OK ${capabilities.EN_OK}`} ty={27} />
+            <BloomPetal cx={0} cy={-50} rx={24} ry={10} fill="#b8c8d8" opacity={ratio(capabilities.WASM_SIMD)} label={`WASM ${capabilities.WASM_SIMD}`} ty={-48} />
+            <BloomPetal cx={44} cy={-25} rx={22} ry={9} fill="#98b898" opacity={ratio(capabilities.AUDIO_PCM)} label={`PCM ${capabilities.AUDIO_PCM}`} ty={-23} />
+            <BloomPetal cx={44} cy={25} rx={22} ry={9} fill="#e8c878" opacity={ratio(capabilities.ONNX_INT8)} label={`INT8 ${capabilities.ONNX_INT8}`} ty={27} />
+            <BloomPetal cx={0} cy={50} rx={24} ry={10} fill="#f4885a" opacity={ratio(capabilities.KV_CACHE)} label={`KV ${capabilities.KV_CACHE}`} ty={52} />
+            <BloomPetal cx={-44} cy={25} rx={22} ry={9} fill="#c8d4e0" opacity={ratio(capabilities.ENGLISH_OK)} label={`EN ${capabilities.ENGLISH_OK}`} ty={27} />
             <BloomPetal cx={-44} cy={-25} rx={22} ry={9} fill="#fbd9c0" opacity={ratio(capabilities.F32)} label={`F32 ${capabilities.F32}`} ty={-23} />
           </g>
         </svg>

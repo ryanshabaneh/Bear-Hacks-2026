@@ -86,11 +86,11 @@ export default async function ForecastDetailPage({
             <CapabilityBloom
               totalNodes={47}
               capabilities={{
-                WEBGPU: 31,
-                AUDIO: 47,
-                HEAP_1GB: 38,
-                WASM: 16,
-                EN_OK: 47,
+                WASM_SIMD: 47,
+                AUDIO_PCM: 47,
+                ENGLISH_OK: 47,
+                ONNX_INT8: 47,
+                KV_CACHE: 47,
                 F32: 47,
               }}
             />
