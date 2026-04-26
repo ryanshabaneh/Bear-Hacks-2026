@@ -164,3 +164,15 @@ model Settlement {
   strataCents      Int
   createdAt        DateTime    @default(now())
 }
+
+model WorkerNode {
+  id              String   @id @default(cuid())
+  nodeKey         String   @unique
+  origin          String
+  label           String?
+  slicesComputed  Int      @default(0)
+  lastHeartbeatAt DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([lastHeartbeatAt])
+}

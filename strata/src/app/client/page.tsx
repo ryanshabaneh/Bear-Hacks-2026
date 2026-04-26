@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AppShell } from "@/components/cirrus/shell/AppShell";
 import { ClientOnboardingModal } from "@/components/onboarding/ClientOnboardingModal";
 import { StudioFlow } from "@/components/client/StudioFlow";
+import { NodesIndicator } from "@/components/client/NodesIndicator";
 
 export default async function ClientDashboard() {
   const session = await getSession();
@@ -89,6 +90,8 @@ export default async function ClientDashboard() {
             tone="default"
           />
         </section>
+
+        <NodesIndicator />
 
         <StudioFlow initialForecasts={initialItems} />
       </div>
