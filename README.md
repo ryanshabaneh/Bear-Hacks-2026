@@ -4,6 +4,8 @@
 
 Strata is a creator-economy transcription marketplace built on the [Distributive Compute Protocol (DCP)](https://distributed.computer). Clients submit audio, and it gets transcribed across a distributed network of visitor browsers -- no GPU servers required. Distributors embed a single script tag on their site and earn revenue share from the compute their visitors contribute.
 
+<img width="1280" height="635" alt="image" src="https://github.com/user-attachments/assets/9f0d830c-bbbb-44b3-bfe0-effeb7aede38" />
+
 ---
 
 ## The Problem
